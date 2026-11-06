@@ -3,7 +3,7 @@ import argparse
 import hashlib
 import json
 import re
-import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
@@ -12,6 +12,7 @@ from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 SOURCE = 'https://nmdt.ru/afisha/events/'
+RELAY = 'https://api.allorigins.win/raw?'
 MONTHS = 'января февраля марта апреля мая июня июля августа сентября октября ноября декабря'.split()
 PERFORMANCE = re.compile(r'/performance/\d+/?')
 
@@ -102,19 +103,24 @@ def parse_month(html, year, month):
 
 def download_month(year, month):
     url = SOURCE + '?' + urlencode({'Month': f'{month:02}', 'Year': year})
-    request = Request(url, headers={'User-Agent': 'Antrakt-calendar/1.0', 'Accept': 'text/html'})
-    for attempt in range(3):
+    failures = []
+    for address, label in ((url, 'theater'), (RELAY + urlencode({'url': url}), 'public relay')):
+        request = Request(address, headers={'User-Agent': 'Antrakt-calendar/1.0', 'Accept': 'text/html'})
         try:
-            with urlopen(request, timeout=20) as response:
+            with urlopen(request, timeout=15) as response:
                 data = response.read(2_000_001)
                 if len(data) > 2_000_000:
                     raise ValueError('Schedule response is too large')
-                encoding = response.headers.get_content_charset() or 'windows-1251'
-            return parse_month(data.decode(encoding), year, month)
-        except (OSError, UnicodeError):
-            if attempt == 2:
-                raise
-            time.sleep(2 ** attempt)
+                encoding = response.headers.get_content_charset()
+            for charset in dict.fromkeys(filter(None, (encoding, 'utf-8', 'windows-1251'))):
+                try:
+                    return parse_month(data.decode(charset), year, month), label
+                except (LookupError, ValueError) as error:
+                    failure = error
+            failures.append(f'{label}: {failure}')
+        except (OSError, ValueError) as error:
+            failures.append(f'{label}: {error}')
+    raise ValueError('; '.join(failures))
 
 
 def main():
@@ -122,19 +128,23 @@ def main():
     parser.add_argument('--baseline', type=Path, default=Path('afisha.json'))
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
-    previous = json.loads(args.baseline.read_text(encoding='utf-8'))
+    snapshots = [json.loads(path.read_text(encoding='utf-8')) for path in {args.baseline, Path('afisha.json')} if path.is_file()]
+    previous = max(snapshots, key=lambda item: datetime.fromisoformat(item['updatedAt'].replace('Z', '+00:00')))
     now = datetime.now(ZoneInfo('Europe/Moscow'))
     absolute_month = now.year * 12 + now.month - 1
     months = {}
-    for delta in range(-1, 3):
-        year, offset = divmod(absolute_month + delta, 12)
-        month = offset + 1
-        key = f'{year}-{month:02}'
-        try:
-            months[key] = download_month(year, month)
-            print(f'{key}: {len(months[key])} events')
-        except (OSError, ValueError) as error:
-            print(f'::warning::Could not refresh {key}: {error}')
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        pending = {}
+        for delta in range(-1, 3):
+            year, offset = divmod(absolute_month + delta, 12)
+            month = offset + 1
+            pending[f'{year}-{month:02}'] = pool.submit(download_month, year, month)
+        for key, future in pending.items():
+            try:
+                months[key], source = future.result()
+                print(f'{key}: {len(months[key])} events via {source}')
+            except ValueError as error:
+                print(f'::warning::Could not refresh {key}: {error}')
     if not months:
         result = {**previous, 'stale': True}
     else:
