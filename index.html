@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f5f1eb">
+  <meta name="description" content="Антракт — личный календарь съёмок, репетиций и спектаклей.">
+  <title>Антракт — планер актёра</title>
+  <link rel="icon" href="./mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <svg xmlns="http://www.w3.org/2000/svg" class="symbols" aria-hidden="true">
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18m-12 5h.01m3 0h.01m3 0h.01"/></symbol>
+    <symbol id="i-ticket" viewBox="0 0 24 24"><path d="M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4V7Zm12 0v2m0 2v2m0 2v2"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H5l1.4-3.4A7.5 7.5 0 1 1 20 11.5Z"/><path d="M9 11.5h.01m3 0h.01m3 0h.01"/></symbol>
+    <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 20v-1.2a4.8 4.8 0 0 1 4.8-4.8h3.4a4.8 4.8 0 0 1 4.8 4.8V20"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path d="m14.5 6-6 6 6 6"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="m9.5 6 6 6-6 6"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2.5 14.2 9.8 21.5 12l-7.3 2.2-2.2 7.3-2.2-7.3L2.5 12l7.3-2.2L12 2.5Z"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M12 19V5m-6 6 6-6 6 6"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M7 17 17 7M7 7h10v10"/></symbol>
+    <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 6l2 4m5-4 2 4"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  </svg>
+
+  <header class="topbar">
+    <div class="shell topbar-inner">
+      <button class="brand" type="button" data-panel="calendar" aria-label="Антракт, календарь">
+        <img src="./mark.svg" width="40" height="40" alt="">
+        <span><strong>Антракт<span class="brand-dot">.</span></strong><small>ПЛАНЕР АКТЁРА</small></span>
+      </button>
+      <nav class="navigation" aria-label="Разделы планера">
+        <button type="button" data-panel="calendar" aria-current="page"><svg><use href="#i-calendar"/></svg>Календарь</button>
+        <button type="button" data-panel="chat"><svg><use href="#i-chat"/></svg>Помощник</button>
+        <button type="button" data-panel="theater"><svg><use href="#i-ticket"/></svg>Афиша</button>
+      </nav>
+      <button id="account-button" class="button subtle account" type="button"><svg><use href="#i-person"/></svg><span>Войти</span></button>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="marquee" aria-labelledby="hero-heading">
+      <div class="marquee-copy">
+        <p class="eyebrow"><span class="on-air"></span> ЛИЧНОЕ РАСПИСАНИЕ</p>
+        <h1 id="hero-heading">Всё по ролям<span>.</span></h1>
+        <p>Съёмки, репетиции и спектакли<br class="mobile-break"> в одном календаре.</p>
+      </div>
+      <div class="curtain" aria-hidden="true"></div>
+      <button class="date-ticket" type="button" data-today aria-label="Перейти к сегодняшней дате">
+        <small>СЕГОДНЯ</small><strong id="today-number"></strong><span id="today-month"></span>
+      </button>
+    </section>
+
+    <div class="workspace" id="workspace" data-active="calendar">
+      <section id="calendar-panel" class="card calendar-card" aria-labelledby="calendar-heading">
+        <header class="section-heading">
+          <div><p class="eyebrow">01 / РАСПИСАНИЕ</p><h2 id="calendar-heading">Календарь</h2></div>
+          <button class="button primary" id="add-event" type="button"><svg><use href="#i-plus"/></svg><span>Событие</span></button>
+        </header>
+        <div class="calendar-toolbar">
+          <div class="date-controls">
+            <button class="icon-button" id="prev" type="button" aria-label="Предыдущий период"><svg><use href="#i-left"/></svg></button>
+            <button class="period" id="period" type="button" aria-label="Выбрать дату"><span id="period-label"></span><svg><use href="#i-down"/></svg></button>
+            <button class="icon-button" id="next" type="button" aria-label="Следующий период"><svg><use href="#i-right"/></svg></button>
+            <button class="button today" type="button" data-today>Сегодня</button>
+          </div>
+          <div class="segmented" role="group" aria-label="Вид календаря">
+            <button type="button" data-view="day">День</button><button type="button" data-view="week">Неделя</button><button type="button" data-view="month" aria-pressed="true">Месяц</button><button type="button" data-view="year">Год</button>
+          </div>
+        </div>
+        <div id="calendar-content"></div>
+        <div class="legend" aria-label="Типы событий"><span><i class="dot filming"></i>Съёмка</span><span><i class="dot rehearsal"></i>Репетиция</span><span><i class="dot show"></i>Спектакль</span><span><i class="dot personal"></i>Личное</span></div>
+        <section class="agenda" aria-labelledby="agenda-heading">
+          <div class="agenda-heading"><div><p class="eyebrow">ПЛАНЫ НА ДЕНЬ</p><h3 id="agenda-heading"></h3></div><span id="agenda-count" class="counter"></span></div>
+          <div id="agenda-list"></div>
+        </section>
+      </section>
+
+      <aside class="side" aria-label="Помощник и афиша">
+        <section id="chat-panel" class="card chat-card" aria-labelledby="chat-heading">
+          <header class="chat-heading"><div class="chat-emblem"><svg><use href="#i-star"/></svg></div><div><p class="eyebrow">02 / БЫСТРАЯ ЗАПИСЬ</p><h2 id="chat-heading">Помощник</h2></div></header>
+          <div id="chat-log" class="chat-log" role="log" aria-label="Переписка с помощником" aria-live="polite">
+            <div class="chat-message bot"><span class="message-label">АНТРАКТ</span><p>Привет! Напиши, что у тебя запланировано, или спроси о расписании.</p></div>
+          </div>
+          <div class="chat-compose">
+            <p class="eyebrow prompt-label">ПОПРОБУЙТЕ</p>
+            <div class="prompts">
+              <button type="button" data-prompt="Съёмка 10 ноября">Съёмка 10 ноября <svg><use href="#i-arrow"/></svg></button>
+              <button type="button" data-prompt="Когда у меня съёмка?">Когда у меня съёмка? <svg><use href="#i-arrow"/></svg></button>
+              <button type="button" data-prompt="Когда у меня выходной?">Когда у меня выходной? <svg><use href="#i-arrow"/></svg></button>
+            </div>
+            <form id="chat-form" class="chat-form"><input id="message" aria-label="Сообщение помощнику" placeholder="Напишите сообщение…" maxlength="250" required><button class="button primary send" type="submit" aria-label="Отправить"><svg><use href="#i-send"/></svg></button></form>
+          </div>
+        </section>
+        <section class="card theater-card" aria-labelledby="theater-heading">
+          <div class="theater-top"><div class="theater-emblem"><svg><use href="#i-ticket"/></svg></div><div><p class="eyebrow">03 / ИЗ ТЕАТРА</p><h2 id="theater-heading">Афиша</h2></div><button class="icon-button" type="button" data-panel="theater" aria-label="Открыть афишу"><svg><use href="#i-arrow"/></svg></button></div>
+          <p id="theater-status" class="theater-status">Загружаем расписание театра…</p>
+          <div id="theater-next"></div>
+        </section>
+      </aside>
+    </div>
+    <footer class="footer"><span>АНТРАКТ<span class="brand-dot">.</span> / ПЛАНЕР АКТЁРА</span><span>Новошахтинск · время афиши по Москве</span></footer>
+  </main>
+
+  <dialog id="modal" aria-labelledby="dialog-title"><div id="modal-content"></div></dialog>
+  <div class="toast" id="toast" role="status" hidden></div>
+  <noscript><p>Для работы планера включите JavaScript.</p></noscript>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
