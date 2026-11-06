@@ -1,5 +1,5 @@
 import {
-  addDays, categories, countLabel, dateLabel, dateOf, dayLabel, firstOfMonth,
+  addDays, categories, categoryOf, countLabel, dateLabel, dateOf, dayLabel, firstOfMonth,
   eventTime, interpret, monthDays, months, moveMonth, pad, scheduleFragment, scheduleFromFragment,
   shortLabel, sortEvents, stamp, today, weekLabels, weekStart,
 } from './planner.js'
@@ -15,7 +15,7 @@ const hiddenShowsKey = 'antrakt:hidden-shows:v1'
 const plannerKey = 'antrakt:calendar:v3'
 const dialog = $('modal')
 const initialChat = $('chat-log').innerHTML
-const state = {date:today(), view:'month', panel:'calendar', filter:'all', personal:[], hiddenShows:[], importantShows:[], cloud:null, shared:null, feed:{months:[],events:[],stale:false}, feedLoading:true}
+const state = {date:today(), view:'month', panel:'calendar', filters:new Set(), personal:[], hiddenShows:[], importantShows:[], cloud:null, shared:null, feed:{months:[],events:[],stale:false}, feedLoading:true}
 let toastTimer
 let previousFocus
 let mutating = false
@@ -30,12 +30,15 @@ function calendarEvents() {
   return [...(state.shared?.events ?? state.personal), ...visibleShows()]
 }
 
+function isMyShow(event) {
+  return event.type === 'show' && event.source === 'theater' && event.myShow === true
+}
+
 function byDay() {
   const map = new Map()
+  const {filters} = state
   for (const event of sortEvents(calendarEvents())) {
-    const matches = state.filter === 'mine'
-      ? event.source === 'theater' && event.myShow === true
-      : state.filter === 'all' || event.type === state.filter
+    const matches = !filters.size || filters.has(event.type) || (filters.has('mine') && isMyShow(event))
     if (!matches) continue
     if (!map.has(event.date)) map.set(event.date, [])
     map.get(event.date).push(event)
@@ -52,12 +55,15 @@ function notify(message) {
 }
 
 function eventTone(event) {
-  return event.source === 'theater' && event.myShow !== true ? 'other-show' : event.type
+  return event.type === 'show' && event.source === 'theater' && !isMyShow(event) ? 'other-show' : event.type
 }
+
+const cellPriority = {filming:0,show:1,teahouse:2,concert:2,rehearsal:3,personal:3,'other-show':4}
 
 function eventRow(event, withDate = false) {
   const type = categories[event.type] || categories.personal
-  const detail = [withDate ? shortLabel(dateOf(event.date)) : '', eventTime(event) || 'Без времени', event.source ? 'Афиша театра' : type.label].filter(Boolean).join(' · ')
+  const label = event.source && event.type === 'show' ? 'Афиша театра' : type.label
+  const detail = [withDate ? shortLabel(dateOf(event.date)) : '', eventTime(event) || 'Без времени', label].filter(Boolean).join(' · ')
   return `<button class="event-row ${eventTone(event)}${event.important ? ' important' : ''}" type="button" data-event="${escape(event.id)}"><span class="event-icon ${eventTone(event)}">${icon(type.icon)}</span><span class="event-text"><strong>${escape(event.title)}</strong><small>${escape(detail)}${event.important ? ' · Важно' : ''}</small></span>${icon('right')}</button>`
 }
 
@@ -110,14 +116,16 @@ function renderCalendar(restoreFocus = false) {
       const key = stamp(day)
       const events = map.get(key) || []
       const outside = !isWeek && day.getMonth() !== date.getMonth()
-      const filming = events.find(event => event.type === 'filming')
-      const important = events.find(event => event.important)
+      const filming = events.some(event => event.type === 'filming')
+      const important = events.some(event => event.important)
       const flags = [outside ? 'outside' : '', key === current ? 'current' : '', key === selected ? 'selected' : '', filming ? 'filming-day' : '', important ? 'important-day' : ''].join(' ')
-      const dots = [...new Set(events.map(eventTone))].map(type => `<i class="dot ${type}"></i>`).join('')
-      const firstEvent = important || filming || events.find(event => eventTone(event) !== 'other-show') || events[0]
-      const preview = firstEvent ? `<span class="cell-preview ${eventTone(firstEvent)}${firstEvent.important ? ' important' : ''}">${escape((firstEvent.time ? eventTime(firstEvent) + ' ' : '') + firstEvent.title)}${events.length > 1 ? ' +' + (events.length - 1) : ''}</span>` : ''
+      const ordered = [...events].sort((a,b) => cellPriority[eventTone(a)] - cellPriority[eventTone(b)])
+      const dots = ordered.map(event => `<i class="dot ${eventTone(event)}${event.important ? ' important' : ''}"></i>`).join('')
+      const firstEvent = ordered[0]
+      const preview = firstEvent ? `<span class="cell-preview ${eventTone(firstEvent)}${firstEvent.important ? ' important' : ''}">${escape((firstEvent.time ? eventTime(firstEvent) + ' ' : '') + firstEvent.title)}</span>` : ''
+      const more = events.length > 1 ? `<span class="cell-more" aria-hidden="true">+${events.length - 1}</span>` : ''
       const labels = [dayLabel(day), countLabel(events.length), filming ? 'День съёмок' : '', important ? 'Важное событие' : ''].filter(Boolean).join(', ')
-      return `<button type="button" class="calendar-cell ${flags}" data-day="${key}" aria-pressed="${key === selected}" ${key === current ? 'aria-current="date"' : ''} aria-label="${labels}"><span class="cell-number">${day.getDate()}</span><span class="cell-dots" aria-hidden="true">${dots}</span>${preview}</button>`
+      return `<button type="button" class="calendar-cell ${flags}" data-day="${key}" aria-pressed="${key === selected}" ${key === current ? 'aria-current="date"' : ''} aria-label="${labels}"><span class="cell-number">${day.getDate()}</span><span class="cell-dots" aria-hidden="true">${dots}</span>${preview}${more}</button>`
     })
     contents = '<div class="weekday-grid" aria-hidden="true">' + weekLabels.map(day => '<span>' + day + '</span>').join('') + '</div><div class="calendar-grid">' + cells.join('') + '</div>'
   }
@@ -125,20 +133,23 @@ function renderCalendar(restoreFocus = false) {
   $('period-label').textContent = label
   $('calendar-content').innerHTML = contents
   document.querySelectorAll('[data-view]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.view === state.view)))
-  document.querySelectorAll('[data-filter]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.filter === state.filter)))
+  document.querySelectorAll('[data-filter]').forEach(button => {
+    const {filter} = button.dataset
+    button.setAttribute('aria-pressed', String(filter === 'all' ? !state.filters.size : state.filters.has(filter)))
+  })
   const castStatus = $('cast-status')
   let castMessage = ''
-  if (state.filter === 'mine') {
+  if (state.filters.has('mine')) {
     if (state.feedLoading) castMessage = 'Загружаем афишу…'
     else if (!state.feed.months.length) castMessage = 'Афиша пока недоступна.'
-    else if (state.feed.events.some(event => typeof event.myShow !== 'boolean')) castMessage = 'Состав некоторых спектаклей пока не удалось проверить.'
+    else if (state.feed.events.some(event => event.type === 'show' && typeof event.myShow !== 'boolean')) castMessage = 'Состав некоторых спектаклей пока не удалось проверить.'
   }
   castStatus.textContent = castMessage
   castStatus.hidden = !castMessage
   $('agenda-heading').textContent = selected === current ? 'Сегодня, ' + shortLabel(date) : dayLabel(date)
   const agenda = map.get(selected) || []
   $('agenda-count').textContent = countLabel(agenda.length)
-  $('agenda-list').innerHTML = agenda.length ? agenda.map(event => eventRow(event)).join('') : '<p class="empty">' + (state.filter === 'all' ? 'На этот день пока нет событий.' : 'На этот день нет событий выбранного типа.') + '</p>'
+  $('agenda-list').innerHTML = agenda.length ? agenda.map(event => eventRow(event)).join('') : '<p class="empty">' + (state.filters.size ? 'На этот день нет событий по выбранным фильтрам.' : 'На этот день пока нет событий.') + '</p>'
   if (restoreFocus) $('calendar-content').querySelector('[data-day="' + selected + '"]')?.focus({preventScroll:true})
 }
 
@@ -161,7 +172,11 @@ async function loadFeed() {
     const response = await fetch('./afisha.json', {cache:'no-cache', signal:AbortSignal.timeout(12000)})
     if (!response.ok) throw new Error()
     const data = await response.json()
-    const events = data.events.filter(event => datePattern.test(event.date) && typeof event.title === 'string' && /^https:\/\/nmdt\.ru\/performance\/\d+\/?$/.test(event.url)).map(event => ({...event,type:'show',source:'theater'}))
+    const events = data.events.filter(event => datePattern.test(event.date) && typeof event.title === 'string' && /^https:\/\/nmdt\.ru\/performance\/\d+\/?$/.test(event.url)).map(event => {
+      const category = categoryOf(event.title)
+      const type = category === 'concert' || category === 'teahouse' ? category : 'show'
+      return {...event,type,source:'theater'}
+    })
     const stale = data.stale === true || Date.now() - new Date(data.updatedAt).getTime() > 96 * 60 * 60 * 1000
     state.feed = {...data, stale, events:sortEvents(events)}
   } catch {
@@ -192,8 +207,17 @@ function jump(date) {
   setPanel('calendar')
 }
 
+function toggleFilter(filter) {
+  if (filter === 'all') state.filters.clear()
+  else if (!state.filters.delete(filter)) {
+    if (filter === 'show') state.filters.delete('mine')
+    if (filter === 'mine') state.filters.delete('show')
+    state.filters.add(filter)
+  }
+}
+
 function reveal(type) {
-  if (state.filter !== 'all' && state.filter !== type) state.filter = 'all'
+  if (state.filters.size && !state.filters.has(type)) toggleFilter(type)
 }
 
 function shift(direction) {
@@ -708,7 +732,7 @@ document.addEventListener('click', event => {
     renderCalendar()
   }
   if (filter) {
-    state.filter = filter
+    toggleFilter(filter)
     renderCalendar()
   }
   if (day) {
@@ -725,7 +749,7 @@ document.addEventListener('click', event => {
   if (id) openEvent(id)
   if (date) {
     if (dialog.open) dialog.close()
-    state.filter = 'all'
+    state.filters.clear()
     jump(date)
   }
   if (prompt) {

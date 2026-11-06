@@ -2,8 +2,13 @@ export const categories = {
   filming: {label: 'Съёмка', icon: 'film'},
   rehearsal: {label: 'Репетиция', icon: 'clock'},
   show: {label: 'Спектакль', icon: 'ticket'},
+  teahouse: {label: 'Чайхана', icon: 'cup'},
+  concert: {label: 'Концерт', icon: 'music'},
   personal: {label: 'Личное', icon: 'calendar'},
 }
+
+const eventAliases = {репа:'репетиция', чх:'чайхана', спект:'спектакль'}
+const expandEventAliases = text => text.replace(/(?<![\p{L}\p{N}])(репа|чх|спект)\.?(?![\p{L}\p{N}])/giu, (_, alias) => eventAliases[alias.toLowerCase()])
 
 export const months = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
 const monthCases = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
@@ -143,9 +148,11 @@ function parseDate(text, base) {
 }
 
 export function categoryOf(text) {
-  const phrase = text.toLowerCase().replaceAll('ё','е')
+  const phrase = expandEventAliases(text).toLowerCase().replaceAll('ё','е')
   if (/с[ъь]?ем|кинопроб|кастинг/u.test(phrase)) return 'filming'
   if (/репети|прогон/u.test(phrase)) return 'rehearsal'
+  if (/чайхан/u.test(phrase)) return 'teahouse'
+  if (/концерт/u.test(phrase)) return 'concert'
   if (/спектакл|премьер|показ/u.test(phrase)) return 'show'
   return 'personal'
 }
@@ -217,7 +224,7 @@ export function interpret(text, events, base = today(), feed = {months:[]}, sele
     }
     const found = matches.filter(event => type === 'personal' || event.type === type)
     if (!found.length) {
-      const missing = (type === 'show' || type === 'personal') && (!feed.months.includes(from.slice(0, 7)) || feed.stale)
+      const missing = ['show','teahouse','concert','personal'].includes(type) && (!feed.months.includes(from.slice(0, 7)) || feed.stale)
       return {reply:'В календаре за этот период таких событий нет.' + (missing ? '\nАфиша за этот период может быть неполной.' : '')}
     }
     const items = found.slice(0, 6).map(event => '• ' + shortLabel(dateOf(event.date)) + (event.time ? ', ' + eventTime(event) : '') + ' — ' + event.title)
@@ -250,7 +257,8 @@ export function interpret(text, events, base = today(), feed = {months:[]}, sele
   title = title.replace(/^\s*(?:добавь|запланируй|запиши|поставь)\s+/iu,'').replace(/[\s,.;:!?–—-]+$/u,'').replace(/(?:^|\s)(?:в|на)$/iu,'').replace(/^[\s,.;:–—-]+/u,'').replace(/\s+/gu,' ')
   if (!title) return {reply:'Как назвать событие? Напиши название вместе с датой, например «Съёмка завтра».'}
   const date = parsed?.date ?? selectedDate
-  const event = {title:capitalize(title.replace(/(?<![а-я])с[ъь][её]м/giu,'съём')), date:stamp(date), time, type, ...(endTime ? {endTime} : {})}
+  const name = expandEventAliases(title).replace(/(?<![а-я])с[ъь][её]м/giu,'съём')
+  const event = {title:capitalize(name), date:stamp(date), time, type, ...(endTime ? {endTime} : {})}
   if (batch) {
     const dates = batch.dates.sort((a,b) => a-b)
     return {events:dates.map(day => ({...event,date:stamp(day)})), date:stamp(dates[0]), reply:'«' + event.title + '» · ' + dates.map(dateLabel).join(', ') + (time ? ' · ' + eventTime(event) : '') + '.'}
