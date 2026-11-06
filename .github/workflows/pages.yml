@@ -5,7 +5,7 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    - cron: '23 2,14 * * *'
+    - cron: '23 2 * * *'
 
 permissions:
   contents: read
@@ -15,7 +15,21 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  schedule:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.due.outputs.build }}
+    steps:
+      - id: due
+        run: |
+          # Count continuous UTC days so the interval also holds across month boundaries.
+          if [[ "$GITHUB_EVENT_NAME" != schedule ]] || (( $(date -u +%s) / 86400 % 3 == 0 )); then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: schedule
+    if: needs.schedule.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -26,17 +40,27 @@ jobs:
           key: afisha-v1-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: afisha-v1-
       - name: Update the theater schedule
+        if: github.event_name != 'push'
         run: |
           baseline=afisha.json
           if test -s .afisha-cache/afisha.json; then baseline=.afisha-cache/afisha.json; fi
           python3 sync_afisha.py --baseline "$baseline" --output .afisha-cache/afisha.json
-          mkdir -p dist
-          cp index.html styles.css app.js planner.js mark.svg curtain.svg dist/
-          cp .afisha-cache/afisha.json dist/afisha.json
       - uses: actions/cache/save@v4
+        if: github.event_name != 'push'
         with:
           path: .afisha-cache
           key: afisha-v1-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Assemble the planner
+        run: |
+          mkdir -p dist
+          cp index.html styles.css app.js planner.js sync.js sync-config.js logo.png curtain.svg dist/
+          version="${GITHUB_SHA:0:12}"
+          sed -i "s|./styles.css\"|./styles.css?v=$version\"|; s|./app.js\"|./app.js?v=$version\"|" dist/index.html
+          sed -i "s|./planner.js'|./planner.js?v=$version'|; s|./sync.js'|./sync.js?v=$version'|" dist/app.js
+          sed -i "s|./planner.js'|./planner.js?v=$version'|; s|./sync-config.js'|./sync-config.js?v=$version'|" dist/sync.js
+          baseline=afisha.json
+          if test -s .afisha-cache/afisha.json; then baseline=.afisha-cache/afisha.json; fi
+          cp "$baseline" dist/afisha.json
       - uses: actions/upload-pages-artifact@v4
         with:
           path: dist

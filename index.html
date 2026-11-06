@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f5f1eb">
   <meta name="description" content="Антракт — личный календарь съёмок, репетиций и спектаклей.">
   <title>Антракт — планер актёра</title>
-  <link rel="icon" href="./mark.svg" type="image/svg+xml">
+  <link rel="icon" href="./logo.png" type="image/png">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -30,7 +30,7 @@
   <header class="topbar">
     <div class="shell topbar-inner">
       <button class="brand" type="button" data-panel="calendar" aria-label="Антракт, календарь">
-        <img src="./mark.svg" width="40" height="40" alt="">
+        <span class="brand-mark"><img src="./logo.png" width="80" height="80" alt=""></span>
         <span><strong>Антракт</strong><small>ПЛАНЕР АКТЁРА</small></span>
       </button>
       <nav class="navigation" aria-label="Разделы планера">
@@ -46,7 +46,7 @@
     <section class="marquee" aria-labelledby="hero-heading">
       <div class="marquee-copy">
         <p class="eyebrow"><span class="on-air"></span> ЛИЧНОЕ РАСПИСАНИЕ</p>
-        <h1 id="hero-heading">Всё по ролям<span>.</span></h1>
+        <h1 id="hero-heading">Всё по ролям</h1>
         <p>Съёмки, репетиции и спектакли<br class="mobile-break"> в одном календаре.</p>
       </div>
       <div class="curtain" aria-hidden="true"></div>
@@ -58,6 +58,10 @@
     <aside id="shared-banner" class="shared-banner" aria-label="Режим просмотра" hidden>
       <div><strong>Расписание по ссылке</strong><p id="shared-date"></p></div>
       <button type="button" class="button subtle" id="my-calendar">Мой календарь</button>
+    </aside>
+    <aside id="sync-banner" class="shared-banner" aria-label="Общий календарь" hidden>
+      <div><strong>Общий календарь</strong><p id="sync-status" role="status"></p></div>
+      <button type="button" class="button subtle" id="sync-settings">Управление</button>
     </aside>
 
     <div class="workspace" id="workspace" data-active="calendar">
@@ -87,6 +91,7 @@
         </div>
         <p id="cast-status" class="cast-status" role="status" hidden></p>
         <div id="calendar-content"></div>
+        <p class="calendar-key"><span class="key-filming">День съёмок</span><span class="key-important">Важное событие</span></p>
         <section class="agenda" aria-labelledby="agenda-heading">
           <div class="agenda-heading"><div><p class="eyebrow">ПЛАНЫ НА ДЕНЬ</p><h3 id="agenda-heading"></h3></div><span id="agenda-count" class="counter"></span></div>
           <div id="agenda-list"></div>
