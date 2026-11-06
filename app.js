@@ -1,6 +1,6 @@
 import {
   addDays, categories, countLabel, dateLabel, dateOf, dayLabel, firstOfMonth,
-  interpret, isCalendarEvent, monthDays, months, moveMonth, pad, scheduleFragment, scheduleFromFragment,
+  eventTime, interpret, isCalendarEvent, isTheaterId, monthDays, months, moveMonth, pad, scheduleFragment, scheduleFromFragment,
   shortLabel, sortEvents, stamp, today, weekLabels, weekStart,
 } from './planner.js'
 
@@ -10,15 +10,21 @@ const escape = value => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;',
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
 const theaterUrl = 'https://nmdt.ru/afisha/events/'
 const scheduleKey = 'antrakt:calendar:v2'
+const hiddenShowsKey = 'antrakt:hidden-shows:v1'
 const dialog = $('modal')
 const initialChat = $('chat-log').innerHTML
-const state = {date:today(), view:'month', panel:'calendar', filter:'all', personal:[], shared:null, feed:{months:[],events:[],stale:false}, feedLoading:true}
+const state = {date:today(), view:'month', panel:'calendar', filter:'all', personal:[], hiddenShows:[], shared:null, feed:{months:[],events:[],stale:false}, feedLoading:true}
 let toastTimer
 let previousFocus
 let mutating = false
 
+function visibleShows() {
+  const hidden = new Set(state.shared?.hiddenShows ?? state.hiddenShows)
+  return state.feed.events.filter(event => !hidden.has(event.id))
+}
+
 function calendarEvents() {
-  return [...(state.shared?.events ?? state.personal), ...state.feed.events]
+  return [...(state.shared?.events ?? state.personal), ...visibleShows()]
 }
 
 function byDay() {
@@ -44,8 +50,21 @@ function notify(message) {
 
 function eventRow(event, withDate = false) {
   const type = categories[event.type] || categories.personal
-  const detail = [withDate ? shortLabel(dateOf(event.date)) : '', event.time || 'Без времени', event.source ? 'Афиша театра' : type.label].filter(Boolean).join(' · ')
+  const detail = [withDate ? shortLabel(dateOf(event.date)) : '', eventTime(event) || 'Без времени', event.source ? 'Афиша театра' : type.label].filter(Boolean).join(' · ')
   return `<button class="event-row" type="button" data-event="${escape(event.id)}"><span class="event-icon ${event.type}">${icon(type.icon)}</span><span class="event-text"><strong>${escape(event.title)}</strong><small>${escape(detail)}</small></span>${icon('right')}</button>`
+}
+
+function dayTimeline(events) {
+  const minutes = clock => +clock.slice(0,2) * 60 + +clock.slice(3)
+  const marks = events.filter(event => event.time).map(event => {
+    const start = minutes(event.time)
+    const offset = 100 * start / 1440
+    if (!event.endTime) return `<i class="busy-point" style="left:${offset}%"></i>`
+    const width = 100 * (minutes(event.endTime) - start) / 1440
+    return `<i class="busy-block" style="left:${offset}%;width:${width}%"></i>`
+  }).join('')
+  if (!marks) return ''
+  return `<div class="day-timeline" aria-hidden="true"><div class="busy-track">${marks}</div><div class="busy-hours"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div></div>`
 }
 
 function renderCalendar(restoreFocus = false) {
@@ -72,7 +91,7 @@ function renderCalendar(restoreFocus = false) {
     }).join('') + '</div>'
   } else if (state.view === 'day') {
     label = shortLabel(date) + ' ' + date.getFullYear()
-    contents = `<div class="day-banner"><strong>${pad(date.getDate())}</strong><span>${dayLabel(date)}</span></div>`
+    contents = `<div class="day-banner"><strong>${pad(date.getDate())}</strong><span>${dayLabel(date)}</span></div>` + dayTimeline(map.get(selected) || [])
   } else {
     const isWeek = state.view === 'week'
     const start = isWeek ? weekStart(date) : monthStart
@@ -87,7 +106,7 @@ function renderCalendar(restoreFocus = false) {
       const flags = [outside ? 'outside' : '', key === current ? 'current' : '', key === selected ? 'selected' : ''].join(' ')
       const dots = [...new Set(events.map(event => event.type))].map(type => `<i class="dot ${type}"></i>`).join('')
       const firstEvent = events[0]
-      const preview = firstEvent ? `<span class="cell-preview ${firstEvent.type}">${escape((firstEvent.time ? firstEvent.time + ' ' : '') + firstEvent.title)}${events.length > 1 ? ' +' + (events.length - 1) : ''}</span>` : ''
+      const preview = firstEvent ? `<span class="cell-preview ${firstEvent.type}">${escape((firstEvent.time ? eventTime(firstEvent) + ' ' : '') + firstEvent.title)}${events.length > 1 ? ' +' + (events.length - 1) : ''}</span>` : ''
       return `<button type="button" class="calendar-cell ${flags}" data-day="${key}" aria-pressed="${key === selected}" ${key === current ? 'aria-current="date"' : ''} aria-label="${dayLabel(day)}, ${countLabel(events.length)}"><span class="cell-number">${day.getDate()}</span><span class="cell-dots" aria-hidden="true">${dots}</span>${preview}</button>`
     })
     contents = '<div class="weekday-grid" aria-hidden="true">' + weekLabels.map(day => '<span>' + day + '</span>').join('') + '</div><div class="calendar-grid">' + cells.join('') + '</div>'
@@ -123,8 +142,8 @@ function feedStatus() {
 
 function renderTheater() {
   $('theater-status').textContent = feedStatus()
-  const upcoming = state.feed.events.find(event => event.date >= stamp(today()))
-  $('theater-next').innerHTML = upcoming ? eventRow(upcoming,true) : '<p class="empty">Ближайшие показы пока не опубликованы.</p>'
+  const upcoming = visibleShows().find(event => event.date >= stamp(today()))
+  $('theater-next').innerHTML = upcoming ? eventRow(upcoming,true) : '<p class="empty">Нет ближайших показов.</p>'
 }
 
 async function loadFeed() {
@@ -210,9 +229,16 @@ function readLocalSchedule() {
   return events
 }
 
+function readHiddenShows() {
+  const ids = JSON.parse(localStorage.getItem(hiddenShowsKey) ?? '[]')
+  if (!Array.isArray(ids) || !ids.every(isTheaterId)) throw new Error('Не удалось прочитать список скрытых показов.')
+  return ids
+}
+
 function refreshLocalSchedule() {
   try {
     state.personal = readLocalSchedule()
+    state.hiddenShows = readHiddenShows()
   } catch {
     notify('Не удалось прочитать события в этом браузере.')
   }
@@ -245,10 +271,28 @@ function changeEvent(event, remove = false) {
   })
 }
 
+async function setShowHidden(id, hidden) {
+  const save = () => {
+    const ids = new Set(readHiddenShows())
+    if (hidden) ids.add(id)
+    else ids.delete(id)
+    const updated = [...ids]
+    localStorage.setItem(hiddenShowsKey, JSON.stringify(updated))
+    state.hiddenShows = updated
+  }
+  if (navigator.locks) await navigator.locks.request(hiddenShowsKey, save)
+  else save()
+  renderCalendar()
+  renderTheater()
+}
+
 window.addEventListener('storage', event => {
-  if (event.key !== scheduleKey && event.key !== null) return
+  if (event.key !== scheduleKey && event.key !== hiddenShowsKey && event.key !== null) return
   refreshLocalSchedule()
-  if (!state.shared) renderCalendar()
+  if (!state.shared) {
+    renderCalendar()
+    renderTheater()
+  }
 })
 
 async function shareDialog() {
@@ -262,7 +306,7 @@ async function shareDialog() {
   const controls = $('share-controls')
   const message = controls.querySelector('.form-message')
   try {
-    const fragment = await scheduleFragment(readLocalSchedule())
+    const fragment = await scheduleFragment(readLocalSchedule(),today(),readHiddenShows())
     if (!controls.isConnected || !dialog.open) return
     const link = new URL(location.pathname, location.origin)
     link.hash = fragment
@@ -307,7 +351,7 @@ async function applySharedLink() {
   $('chat-greeting').textContent = snapshot
     ? 'Спроси о съёмках, спектаклях или свободных днях в этом расписании.'
     : 'Привет! Напиши, что у тебя запланировано, или спроси о расписании.'
-  document.querySelector('[data-prompt="Съёмка 10 ноября"]').hidden = Boolean(snapshot)
+  document.querySelectorAll('[data-creates-event]').forEach(button => { button.hidden = Boolean(snapshot) })
   if (snapshot) {
     state.date = dateOf(snapshot.date)
     $('shared-date').textContent = 'Копия от ' + dateLabel(state.date) + ' · только просмотр'
@@ -317,6 +361,7 @@ async function applySharedLink() {
     state.date = today()
   }
   renderCalendar()
+  renderTheater()
 }
 
 function editor(event = null) {
@@ -325,9 +370,10 @@ function editor(event = null) {
   showDialog(event ? 'Редактировать событие' : 'Новое событие','КАЛЕНДАРЬ',`
     <form class="dialog-form" id="event-form">
       <label>Название<input name="title" required maxlength="250" placeholder="Например, репетиция" value="${escape(event?.title || '')}"></label>
-      <div class="fields"><label>Дата<input name="date" type="date" min="1900-01-01" max="2199-12-31" required value="${event?.date || stamp(state.date)}"></label><label>Время<input name="time" type="time" value="${event?.time || ''}"></label></div>
-      <label>Категория<select name="type">${options}</select></label><p class="form-message" role="status"></p>
-      <div class="dialog-actions">${event ? '<button type="button" class="button" id="remove-event">Удалить</button>' : ''}<button class="button primary" type="submit">Сохранить</button></div>
+      <div class="fields"><label>Дата<input name="date" type="date" min="1900-01-01" max="2199-12-31" required value="${event?.date || stamp(state.date)}"></label><label>Категория<select name="type">${options}</select></label></div>
+      <div class="fields"><label>Начало<input name="time" type="time" value="${event?.time || ''}"></label><label>Окончание<input name="endTime" type="time" value="${event?.endTime || ''}"></label></div>
+      <p class="form-message" role="status"></p>
+      <div class="dialog-actions">${event ? '<button type="button" class="button" id="remove-event">Удалить событие</button>' : ''}<button class="button primary" type="submit">Сохранить</button></div>
     </form>`)
   const form = $('event-form')
   const save = async remove => {
@@ -339,7 +385,11 @@ function editor(event = null) {
       message.textContent = 'Введи название события.'
       return
     }
-    const record = {id:event?.id || crypto.randomUUID(),title,date:fields.get('date'),time:fields.get('time'),type:fields.get('type')}
+    const record = {id:event?.id || crypto.randomUUID(),title,date:fields.get('date'),time:fields.get('time'),endTime:fields.get('endTime'),type:fields.get('type')}
+    if (!remove && record.endTime && (!record.time || record.endTime <= record.time)) {
+      message.textContent = 'Укажи начало и окончание позже начала в пределах одного дня.'
+      return
+    }
     const buttons = [...form.querySelectorAll('button')]
     buttons.forEach(button => { button.disabled = true })
     try {
@@ -369,20 +419,39 @@ function editor(event = null) {
 }
 
 function theaterDialog() {
-  const upcoming = state.feed.events.filter(event => event.date >= stamp(today()))
-  showDialog('Афиша театра','НОВОШАХТИНСКИЙ ДРАМАТИЧЕСКИЙ ТЕАТР',`<p class="dialog-copy">${escape(feedStatus())}</p>${upcoming.length ? upcoming.map(event => eventRow(event,true)).join('') : '<p class="empty">Ближайшие показы пока не опубликованы.</p>'}<div class="dialog-actions"><a href="${theaterUrl}" target="_blank" rel="noopener noreferrer">Сайт театра ↗</a></div>`)
+  const upcoming = visibleShows().filter(event => event.date >= stamp(today()))
+  const hidden = state.shared ? [] : state.feed.events.filter(event => state.hiddenShows.includes(event.id))
+  const hiddenList = hidden.length
+    ? `<details class="hidden-shows"><summary>Скрытые показы · ${hidden.length}</summary>${hidden.map(event => eventRow(event,true)).join('')}</details>`
+    : ''
+  showDialog('Афиша театра','НОВОШАХТИНСКИЙ ДРАМАТИЧЕСКИЙ ТЕАТР',`<p class="dialog-copy">${escape(feedStatus())}</p>${hiddenList}${upcoming.length ? upcoming.map(event => eventRow(event,true)).join('') : '<p class="empty">Нет ближайших показов.</p>'}<div class="dialog-actions"><a href="${theaterUrl}" target="_blank" rel="noopener noreferrer">Сайт театра ↗</a></div>`)
 }
 
 function openEvent(id) {
   const personal = (state.shared?.events ?? state.personal).find(event => event.id === id)
   if (personal) {
     if (!state.shared) return editor(personal)
-    showDialog(personal.title,categories[personal.type].label.toLocaleUpperCase('ru-RU'),`<p class="dialog-copy">${dateLabel(dateOf(personal.date))}${personal.time ? ' · ' + personal.time + ' (МСК)' : ''}</p><div class="dialog-actions"><button class="button" type="button" data-jump="${personal.date}">К дате</button></div>`)
+    showDialog(personal.title,categories[personal.type].label.toLocaleUpperCase('ru-RU'),`<p class="dialog-copy">${dateLabel(dateOf(personal.date))}${personal.time ? ' · ' + eventTime(personal) + ' (МСК)' : ''}</p><div class="dialog-actions"><button class="button" type="button" data-jump="${personal.date}">К дате</button></div>`)
     return
   }
   const show = state.feed.events.find(event => event.id === id)
   if (!show) return
-  showDialog(show.title,'ИЗ АФИШИ ТЕАТРА',`<p class="dialog-copy">${dayLabel(dateOf(show.date))} · ${escape(show.time)} (МСК)</p><div class="dialog-actions"><button class="button" type="button" data-jump="${show.date}">К дате</button><a class="button primary" href="${escape(show.url)}" target="_blank" rel="noopener noreferrer">На сайте театра ↗</a></div>`)
+  const hidden = state.hiddenShows.includes(id)
+  const action = state.shared ? '' : `<button class="button" id="show-visibility" type="button">${hidden ? 'Вернуть в календарь' : 'Убрать из календаря'}</button>`
+  showDialog(show.title,'ИЗ АФИШИ ТЕАТРА',`<p class="dialog-copy">${dayLabel(dateOf(show.date))} · ${escape(show.time)} (МСК)</p><div class="dialog-actions">${action}<button class="button" type="button" data-jump="${show.date}">К дате</button><a class="button primary" href="${escape(show.url)}" target="_blank" rel="noopener noreferrer">На сайте театра ↗</a></div>`)
+  const button = $('show-visibility')
+  if (!button) return
+  button.onclick = async () => {
+    button.disabled = true
+    try {
+      await setShowHidden(id,!hidden)
+      if (button.isConnected && dialog.open) dialog.close()
+      notify(hidden ? 'Показ возвращён в календарь' : 'Показ убран из календаря')
+    } catch {
+      notify('Не удалось изменить показ в календаре.')
+      button.disabled = false
+    }
+  }
 }
 
 function chatMessage(who, text, date = null) {
@@ -401,6 +470,47 @@ function chatMessage(who, text, date = null) {
   log.append(row)
   while (log.children.length > 41) log.children[1].remove()
   log.scrollTop = log.scrollHeight
+  return row
+}
+
+async function saveChatEvent({event, reply}) {
+  let duplicate = false
+  await updateSchedule(events => {
+    duplicate = events.some(item => item.date === event.date && eventTime(item) === eventTime(event) && item.title.toLowerCase() === event.title.toLowerCase())
+    if (duplicate) return events
+    return [...events,{...event,id:crypto.randomUUID()}]
+  })
+  if (duplicate) {
+    chatMessage('bot','Такое событие уже есть в календаре.',event.date)
+    return
+  }
+  reveal(event.type)
+  state.date = dateOf(event.date)
+  if (state.view === 'year') state.view = 'month'
+  renderCalendar()
+  chatMessage('bot',reply,event.date)
+}
+
+function confirmChatEvent(result) {
+  const {event} = result
+  const date = dateOf(event.date)
+  const row = chatMessage('bot','Сохранить «' + event.title + '» на ' + dateLabel(date) + ', ' + eventTime(event) + '?')
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = 'text-button'
+  button.textContent = 'Сохранить на ' + shortLabel(date)
+  row.append(button)
+  $('chat-log').scrollTop = $('chat-log').scrollHeight
+  button.onclick = async () => {
+    button.disabled = true
+    try {
+      await saveChatEvent(result)
+      button.remove()
+    } catch (error) {
+      chatMessage('bot',error.message || 'Не удалось сохранить событие.')
+      button.disabled = false
+    }
+  }
 }
 
 async function send(text) {
@@ -411,21 +521,13 @@ async function send(text) {
   submit.disabled = true
   try {
     if (!state.shared) state.personal = readLocalSchedule()
-    const result = interpret(text,calendarEvents(),today(),state.feed)
+    const result = interpret(text,calendarEvents(),today(),state.feed,state.date)
     if (result.event) {
       if (state.shared) {
         chatMessage('bot','Это копия для просмотра. Чтобы добавить событие, открой свой календарь.')
-        return
-      }
-      const exists = state.personal.some(item => item.date === result.event.date && item.time === result.event.time && item.title.toLowerCase() === result.event.title.toLowerCase())
-      if (exists) {
-        chatMessage('bot','Такое событие уже есть в календаре.',result.date)
-        return
-      }
-      await changeEvent({...result.event,id:crypto.randomUUID()})
-      reveal(result.event.type)
-      state.date = dateOf(result.date)
-      if (state.view === 'year') state.view = 'month'
+      } else if (result.confirm) confirmChatEvent(result)
+      else await saveChatEvent(result)
+      return
     }
     renderCalendar()
     chatMessage('bot',result.reply,result.date)

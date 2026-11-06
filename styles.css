@@ -108,6 +108,13 @@ h2,h3{font-family:var(--serif);font-weight:700;letter-spacing:-.038em;line-heigh
 .day-banner{display:flex;gap:11px;align-items:center;background:#f6eee9;padding:10px 14px;border-block:1px solid var(--line)}
 .day-banner strong{font:700 34px/1 var(--serif);color:var(--wine)}
 .day-banner span{color:var(--muted)}
+.day-timeline{padding:13px 14px 8px}
+.busy-track{position:relative;height:12px;border-radius:6px;background:#eee7e0;overflow:hidden}
+.busy-block,.busy-point{position:absolute;top:0;height:100%;background:var(--wine)}
+.busy-point{width:3px;transform:translateX(-50%);border-radius:3px}
+.busy-hours{display:flex;justify-content:space-between;margin-top:4px;color:var(--muted);font-size:10px;font-variant-numeric:tabular-nums}
+.hidden-shows{margin:10px 0;padding:8px 10px;border:1px solid var(--line);border-radius:8px}
+.hidden-shows summary{cursor:pointer;color:var(--wine);font-weight:700}
 .side{display:grid;gap:15px;min-width:0}
 .chat-heading,.theater-top{display:flex;gap:10px;align-items:center}
 .chat-heading{padding:14px 13px;border-bottom:1px solid var(--line)}

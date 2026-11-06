@@ -7,6 +7,7 @@ export const categories = {
 
 export const months = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
 const monthCases = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
+const monthWord = monthCases.concat(months.map(month => month.toLowerCase())).join('|')
 export const weekLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 const fullDay = new Intl.DateTimeFormat('ru-RU', {weekday:'long', day:'numeric', month:'long'})
 const shortDay = new Intl.DateTimeFormat('ru-RU', {day:'numeric', month:'short'})
@@ -35,21 +36,28 @@ export const countLabel = count => count + ' ' + ({one:'событие', few:'с
 
 const maxLinkLength = 60_000
 const maxSnapshotBytes = 1_000_000
+const clockPattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/
+const theaterId = /^theater-[a-z0-9-]{1,80}$/
 
 export const isCalendarDate = value => typeof value === 'string'
   && /^(?:19|20|21)\d{2}-\d{2}-\d{2}$/.test(value) && stamp(dateOf(value)) === value
+
+export const eventTime = ({time, endTime}) => endTime ? time + '–' + endTime : time
+export const isTheaterId = id => typeof id === 'string' && theaterId.test(id)
 
 export function isCalendarEvent(event) {
   return event && typeof event.id === 'string' && typeof event.title === 'string'
     && event.title.trim().length > 0 && event.title.length <= 250
     && isCalendarDate(event.date) && typeof event.time === 'string'
-    && (event.time === '' || /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(event.time))
+    && (event.time === '' || clockPattern.test(event.time))
+    && (event.endTime === undefined || event.endTime === '' ||
+      (typeof event.endTime === 'string' && event.time && clockPattern.test(event.endTime) && event.endTime > event.time))
     && typeof event.type === 'string' && Object.hasOwn(categories, event.type)
 }
 
-export async function scheduleFragment(events, date = today()) {
-  const rows = sortEvents(events).map(({title, date, time, type}) => [title, date, time, type])
-  const bytes = new TextEncoder().encode(JSON.stringify([stamp(date), rows]))
+export async function scheduleFragment(events, date = today(), hiddenShows = []) {
+  const rows = sortEvents(events).map(({title, date, time, type, endTime}) => endTime ? [title, date, time, type, endTime] : [title, date, time, type])
+  const bytes = new TextEncoder().encode(JSON.stringify([stamp(date), rows, hiddenShows]))
   if (bytes.length > maxSnapshotBytes) throw new Error('Для одной ссылки событий слишком много.')
   const compressed = typeof CompressionStream === 'function'
   const data = compressed
@@ -84,13 +92,15 @@ export async function scheduleFromFragment(fragment) {
   const payload = JSON.parse(json + decoder.decode())
   if (!Array.isArray(payload) || !isCalendarDate(payload[0]) || !Array.isArray(payload[1])) throw new Error('Не удалось открыть ссылку на расписание.')
   const events = payload[1].map((row, index) => {
-    if (!Array.isArray(row) || row.length !== 4) throw new Error('В ссылке есть повреждённые события.')
-    const [title, date, time, type] = row
-    const event = {id:'shared-' + index, title, date, time, type}
+    if (!Array.isArray(row) || (row.length !== 4 && row.length !== 5)) throw new Error('В ссылке есть повреждённые события.')
+    const [title, date, time, type, endTime] = row
+    const event = {id:'shared-' + index, title, date, time, type, ...(endTime === undefined ? {} : {endTime})}
     if (!isCalendarEvent(event)) throw new Error('В ссылке есть повреждённые события.')
     return event
   })
-  return {date:payload[0], events}
+  const hiddenShows = payload[2] === undefined ? [] : payload[2]
+  if (!Array.isArray(hiddenShows) || !hiddenShows.every(isTheaterId)) throw new Error('В ссылке повреждён список скрытых показов.')
+  return {date:payload[0], events, hiddenShows}
 }
 
 function exactDate(year, month, day) {
@@ -107,7 +117,6 @@ function parseDate(text, base) {
   if (iso) return {date:exactDate(+iso[1], +iso[2], +iso[3]), match:iso}
 
   const numeric = /(?<![\d.:])(\d{1,2})[./](\d{1,2})(?:[./](\d{2}|\d{4}))?(?![\d:])/u.exec(text)
-  const monthWord = monthCases.concat(months.map(month => month.toLowerCase())).join('|')
   const named = new RegExp('(?<![\\d:])(\\d{1,2})\\s+(' + monthWord + ')(?![а-я])(?:\\s+(\\d{4})(?![\\d:]))?', 'u').exec(text)
   const match = named || numeric
   if (!match) return null
@@ -153,10 +162,20 @@ function questionRange(phrase, date, base) {
   return [stamp(base), null]
 }
 
-export function interpret(text, events, base = today(), feed = {months:[]}) {
+function parseTimeRange(text) {
+  return /(?<![а-я\d])с\s+(\d{1,2})(?:[:.](\d{2}))?\s+(?:до|по)\s+(\d{1,2})(?:[:.](\d{2}))?(?![\d:.])/iu.exec(text)
+    || /(?<![\d.])(\d{1,2})[:.](\d{2})\s*[-–—]\s*(\d{1,2})[:.](\d{2})(?![\d:.])/u.exec(text)
+}
+
+export function interpret(text, events, base = today(), feed = {months:[]}, selectedDate = base) {
   const phrase = text.toLowerCase().replaceAll('ё','е')
   const query = /^(?:а\s+)?(?:когда|что|какие|какой|есть ли|сколько|найди|покажи|будет ли|свобод[а-я]* ли|могу ли)(?![а-я])/u.test(phrase) || /\?$/.test(phrase)
-  const parsed = parseDate(phrase, base)
+  const range = query ? null : parseTimeRange(phrase)
+  if (range && new RegExp('^\\s+(?:' + monthWord + ')(?![а-я])', 'u').test(phrase.slice(range.index + range[0].length))) {
+    return {reply:'Укажи одну дату и время начала и окончания. Например, «Репетиция 18 ноября с 10 до 18».'}
+  }
+  const withoutRange = range ? text.slice(0, range.index) + ' '.repeat(range[0].length) + text.slice(range.index + range[0].length) : text
+  const parsed = parseDate(withoutRange.toLowerCase().replaceAll('ё','е'), base)
   if (parsed && !parsed.date) return {reply:'Проверь дату. Например, можно написать «Съёмка 10 ноября» или «Репетиция 10.11.2026».'}
   const type = categoryOf(phrase)
 
@@ -181,17 +200,24 @@ export function interpret(text, events, base = today(), feed = {months:[]}) {
       const missing = (type === 'show' || type === 'personal') && (!feed.months.includes(from.slice(0, 7)) || feed.stale)
       return {reply:'В календаре за этот период таких событий нет.' + (missing ? '\nАфиша за этот период может быть неполной.' : '')}
     }
-    const items = found.slice(0, 6).map(event => '• ' + shortLabel(dateOf(event.date)) + (event.time ? ', ' + event.time : '') + ' — ' + event.title)
+    const items = found.slice(0, 6).map(event => '• ' + shortLabel(dateOf(event.date)) + (event.time ? ', ' + eventTime(event) : '') + ' — ' + event.title)
     if (found.length > items.length) items.push('Ещё в календаре: ' + (found.length - items.length))
     return {reply:'Вот что есть в календаре:\n' + items.join('\n'), date:found[0].date}
   }
 
-  if (!parsed) return {reply:'Укажи дату, чтобы я добавил событие. Например, «Репетиция завтра в 14:30».'}
-  const index = parsed.match.index
-  const withoutDate = text.slice(0, index) + ' ' + text.slice(index + parsed.match[0].length)
-  const timeMatch = /(?<![а-я\d])(?:в\s+)?(\d{1,2})[:.](\d{2})(?!\d)|(?:^|\s)в\s+(\d{1,2})(?:\s+час(?:а|ов)?(?![а-я]))?(?=\s|[,.!]|$)/iu.exec(withoutDate)
+  if (!parsed && !range) return {reply:'Укажи дату, чтобы я добавил событие. Например, «Репетиция завтра с 10 до 18».'}
+  const withoutDate = parsed
+    ? withoutRange.slice(0, parsed.match.index) + ' ' + withoutRange.slice(parsed.match.index + parsed.match[0].length)
+    : withoutRange
+  const timeMatch = range ? null : /(?<![а-я\d])(?:в\s+)?(\d{1,2})[:.](\d{2})(?!\d)|(?:^|\s)в\s+(\d{1,2})(?:\s+час(?:а|ов)?(?![а-я]))?(?=\s|[,.!]|$)/iu.exec(withoutDate)
   let time = ''
-  if (timeMatch) {
+  let endTime = ''
+  if (range) {
+    time = pad(range[1]) + ':' + (range[2] || '00')
+    endTime = pad(range[3]) + ':' + (range[4] || '00')
+    if (!clockPattern.test(time) || !clockPattern.test(endTime)) return {reply:'Проверь время. Например, «Репетиция завтра с 10:30 до 18:00».'}
+    if (endTime <= time) return {reply:'Время окончания должно быть позже начала в пределах одного дня.'}
+  } else if (timeMatch) {
     const hour = +(timeMatch[1] || timeMatch[3])
     const minute = +(timeMatch[2] || '0')
     if (hour > 23 || minute > 59) return {reply:'Проверь время. Например, «Съёмка завтра в 18:30».'}
@@ -201,6 +227,8 @@ export function interpret(text, events, base = today(), feed = {months:[]}) {
   if (timeMatch) title = title.slice(0,timeMatch.index) + ' ' + title.slice(timeMatch.index + timeMatch[0].length)
   title = title.replace(/^\s*(?:добавь|запланируй|запиши|поставь)\s+/iu,'').replace(/[\s,.;:!?–—-]+$/u,'').replace(/(?:^|\s)(?:в|на)$/iu,'').replace(/^[\s,.;:–—-]+/u,'').replace(/\s+/gu,' ')
   if (!title) return {reply:'Как назвать событие? Напиши название вместе с датой, например «Съёмка завтра».'}
-  const event = {title:capitalize(title), date:stamp(parsed.date), time, type}
-  return {event, date:event.date, reply:'Добавлено: «' + event.title + '» — ' + dateLabel(parsed.date) + (time ? ' в ' + time : '') + '.'}
+  const date = parsed?.date ?? selectedDate
+  const event = {title:capitalize(title), date:stamp(date), time, type, ...(endTime ? {endTime} : {})}
+  const when = dateLabel(date) + (endTime ? ', ' + eventTime(event) : time ? ' в ' + time : '')
+  return {event, date:event.date, confirm:!parsed, reply:'Добавлено: «' + event.title + '» — ' + when + '.'}
 }

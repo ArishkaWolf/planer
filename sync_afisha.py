@@ -210,7 +210,7 @@ def main():
             'stale': len(months) < 4,
             'events': sorted(events, key=lambda row: (row['date'], row['time'], row['title'])),
         }
-    result['events'] = annotate_cast(result['events'], snapshots, pending.keys())
+    result['events'] = annotate_cast(result['events'], snapshots, months.keys())
     args.output.parent.mkdir(parents=True, exist_ok=True)
     temporary = args.output.with_suffix('.tmp')
     temporary.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
