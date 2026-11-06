@@ -155,3 +155,9 @@ export function openAccount(input, password, create) {
   if (create && password.length < 8) throw new Error('Придумай пароль длиной от 8 символов.')
   return cloudEnabled ? cloudAccount(login, password, create) : localAccount(login, password, create)
 }
+
+export async function readLegacyEvents(input, password) {
+  const login = input.trim().normalize('NFKC').toLowerCase()
+  const account = await localAccount(login, password, false)
+  return account.load()
+}

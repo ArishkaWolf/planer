@@ -14,7 +14,7 @@
     <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18m-12 5h.01m3 0h.01m3 0h.01"/></symbol>
     <symbol id="i-ticket" viewBox="0 0 24 24"><path d="M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4V7Zm12 0v2m0 2v2m0 2v2"/></symbol>
     <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H5l1.4-3.4A7.5 7.5 0 1 1 20 11.5Z"/><path d="M9 11.5h.01m3 0h.01m3 0h.01"/></symbol>
-    <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 20v-1.2a4.8 4.8 0 0 1 4.8-4.8h3.4a4.8 4.8 0 0 1 4.8 4.8V20"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V3m-4 4 4-4 4 4M6 11H4v9h16v-9h-2"/></symbol>
     <symbol id="i-left" viewBox="0 0 24 24"><path d="m14.5 6-6 6 6 6"/></symbol>
     <symbol id="i-right" viewBox="0 0 24 24"><path d="m9.5 6 6 6-6 6"/></symbol>
     <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
@@ -22,7 +22,6 @@
     <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2.5 14.2 9.8 21.5 12l-7.3 2.2-2.2 7.3-2.2-7.3L2.5 12l7.3-2.2L12 2.5Z"/></symbol>
     <symbol id="i-send" viewBox="0 0 24 24"><path d="M12 19V5m-6 6 6-6 6 6"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
-    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></symbol>
     <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M7 17 17 7M7 7h10v10"/></symbol>
     <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 6l2 4m5-4 2 4"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
@@ -39,7 +38,7 @@
         <button type="button" data-panel="chat"><svg><use href="#i-chat"/></svg>Помощник</button>
         <button type="button" data-panel="theater"><svg><use href="#i-ticket"/></svg>Афиша</button>
       </nav>
-      <button id="account-button" class="button subtle account" type="button"><svg><use href="#i-person"/></svg><span>Войти</span></button>
+      <button id="share-button" class="button subtle" type="button" hidden><svg aria-hidden="true"><use href="#i-share"/></svg>Поделиться</button>
     </div>
   </header>
 
@@ -55,6 +54,11 @@
         <small>СЕГОДНЯ</small><strong id="today-number"></strong><span id="today-month"></span>
       </button>
     </section>
+
+    <aside id="shared-banner" class="shared-banner" aria-label="Режим просмотра" hidden>
+      <div><strong>Расписание по ссылке</strong><p id="shared-date"></p></div>
+      <button type="button" class="button subtle" id="my-calendar">Мой календарь</button>
+    </aside>
 
     <div class="workspace" id="workspace" data-active="calendar">
       <section id="calendar-panel" class="card calendar-card" aria-labelledby="calendar-heading">
@@ -73,8 +77,14 @@
             <button type="button" data-view="day">День</button><button type="button" data-view="week">Неделя</button><button type="button" data-view="month" aria-pressed="true">Месяц</button><button type="button" data-view="year">Год</button>
           </div>
         </div>
+        <div class="filters" role="group" aria-label="Фильтр по типу события">
+          <button type="button" data-filter="all" aria-pressed="true">Все</button>
+          <button type="button" data-filter="filming" aria-pressed="false"><i class="dot filming"></i>Съёмки</button>
+          <button type="button" data-filter="rehearsal" aria-pressed="false"><i class="dot rehearsal"></i>Репетиции</button>
+          <button type="button" data-filter="show" aria-pressed="false"><i class="dot show"></i>Спектакли</button>
+          <button type="button" data-filter="personal" aria-pressed="false"><i class="dot personal"></i>Личное</button>
+        </div>
         <div id="calendar-content"></div>
-        <div class="legend" aria-label="Типы событий"><span><i class="dot filming"></i>Съёмка</span><span><i class="dot rehearsal"></i>Репетиция</span><span><i class="dot show"></i>Спектакль</span><span><i class="dot personal"></i>Личное</span></div>
         <section class="agenda" aria-labelledby="agenda-heading">
           <div class="agenda-heading"><div><p class="eyebrow">ПЛАНЫ НА ДЕНЬ</p><h3 id="agenda-heading"></h3></div><span id="agenda-count" class="counter"></span></div>
           <div id="agenda-list"></div>
@@ -85,16 +95,16 @@
         <section id="chat-panel" class="card chat-card" aria-labelledby="chat-heading">
           <header class="chat-heading"><div class="chat-emblem"><svg><use href="#i-star"/></svg></div><div><p class="eyebrow">02 / БЫСТРАЯ ЗАПИСЬ</p><h2 id="chat-heading">Помощник</h2></div></header>
           <div id="chat-log" class="chat-log" role="log" aria-label="Переписка с помощником" aria-live="polite">
-            <div class="chat-message bot"><span class="message-label">АНТРАКТ</span><p>Привет! Напиши, что у тебя запланировано, или спроси о расписании.</p></div>
+            <div class="chat-message bot"><span class="message-label">АНТРАКТ</span><p id="chat-greeting">Привет! Напиши, что у тебя запланировано, или спроси о расписании.</p></div>
           </div>
           <div class="chat-compose">
-            <p class="eyebrow prompt-label">ПОПРОБУЙТЕ</p>
+            <p class="eyebrow prompt-label">ПРИМЕРЫ</p>
             <div class="prompts">
               <button type="button" data-prompt="Съёмка 10 ноября">Съёмка 10 ноября <svg><use href="#i-arrow"/></svg></button>
               <button type="button" data-prompt="Когда у меня съёмка?">Когда у меня съёмка? <svg><use href="#i-arrow"/></svg></button>
               <button type="button" data-prompt="Когда у меня выходной?">Когда у меня выходной? <svg><use href="#i-arrow"/></svg></button>
             </div>
-            <form id="chat-form" class="chat-form"><input id="message" aria-label="Сообщение помощнику" placeholder="Напишите сообщение…" maxlength="250" required><button class="button primary send" type="submit" aria-label="Отправить"><svg><use href="#i-send"/></svg></button></form>
+            <form id="chat-form" class="chat-form"><input id="message" type="text" aria-label="Сообщение помощнику" placeholder="Напиши сообщение…" enterkeyhint="send" autocomplete="off" maxlength="250" required><button class="button primary send" type="submit" aria-label="Отправить"><svg><use href="#i-send"/></svg></button></form>
           </div>
         </section>
         <section class="card theater-card" aria-labelledby="theater-heading">

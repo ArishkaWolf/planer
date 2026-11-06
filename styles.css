@@ -1,8 +1,10 @@
 :root{color-scheme:light;--paper:#f5f1eb;--white:#fffdfa;--ink:#241e1d;--muted:#6f625f;--line:#e6ded6;--wine:#7c2537;--wine-dark:#611929;--pink:#f4e5e7;--serif:Georgia,"Times New Roman",serif;--sans:system-ui,-apple-system,"Segoe UI",sans-serif}
 *,*::before,*::after{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.5 var(--sans)}
+body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.5 var(--sans);cursor:default;caret-color:transparent;-webkit-user-select:none;user-select:none}
 button,input,select{font:inherit}
+input,textarea{cursor:text;caret-color:auto;-webkit-user-select:text;user-select:text}
+select{cursor:pointer}
 button{cursor:pointer;color:inherit}
 button:disabled{cursor:wait;opacity:.55}
 a{color:var(--wine)}
@@ -30,7 +32,6 @@ h2,h3{font-family:var(--serif);font-weight:700;letter-spacing:-.038em;line-heigh
 .primary{background:var(--wine);color:white;border-color:var(--wine)}
 .primary:hover{background:var(--wine-dark);border-color:var(--wine-dark)}
 .subtle{min-height:36px;font-size:12px}
-.account span{max-width:110px;text-overflow:ellipsis;overflow:hidden}
 .icon-button{width:36px;min-height:36px;padding:0}
 .icon-button svg{width:17px;height:17px}
 .marquee{position:relative;isolation:isolate;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:8px;margin:17px 0 17px;padding:23px 16px;min-height:157px;border-radius:12px;background:#251d20;color:#fff8ef}
@@ -49,6 +50,8 @@ h2,h3{font-family:var(--serif);font-weight:700;letter-spacing:-.038em;line-heigh
 .date-ticket strong{font:700 34px/1 var(--serif);letter-spacing:-.08em}
 .date-ticket span{font-size:10px;color:#f1d9db}
 .workspace{display:grid;gap:16px;align-items:start}
+.shared-banner{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:16px;padding:11px 13px;border:1px solid #e7c9ce;border-radius:10px;background:#fbf0f1;color:var(--wine)}
+.shared-banner p{color:var(--muted);font-size:11px}
 .workspace[data-active="chat"] .calendar-card,.workspace[data-active="calendar"] .chat-card,.theater-card{display:none}
 .card{min-width:0;background:var(--white);border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 16px #3c221304}
 .section-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:16px 13px 14px}
@@ -79,8 +82,10 @@ h2,h3{font-family:var(--serif);font-weight:700;letter-spacing:-.038em;line-heigh
 .dot{display:inline-block;width:6px;height:6px;border-radius:50%;flex:none;background:#6a696b}
 .dot.filming{background:#a13852}.dot.rehearsal{background:#96632f}.dot.show{background:#684a8a}.dot.personal{background:#65757a}
 .cell-preview{display:none}
-.legend{display:flex;justify-content:center;flex-wrap:wrap;gap:6px 11px;padding:11px 8px;color:var(--muted);font-size:10px}
-.legend span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.filters{display:flex;flex-wrap:wrap;gap:5px;padding:0 12px 12px}
+.filters button{display:inline-flex;align-items:center;gap:4px;padding:0 8px;min-height:36px;border:1px solid var(--line);border-radius:20px;background:var(--white);color:var(--muted);font-weight:700;font-size:11px;white-space:nowrap;transition:background .18s,border-color .18s,color .18s}
+.filters button:hover{background:#f7efe9}
+.filters button[aria-pressed="true"]{border-color:#d5a5ae;background:var(--pink);color:var(--wine)}
 .agenda{padding:14px 12px 15px;border-top:1px solid var(--line)}
 .agenda-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}
 .agenda-heading h3{font-size:23px;margin-top:4px}
@@ -143,8 +148,6 @@ dialog::backdrop{background:#26191db0}
 .dialog-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:7px;margin-top:5px}
 .form-message{font-size:12px;color:var(--wine);min-height:15px}
 .text-button{padding:0;border:0;background:none;color:var(--wine);font-weight:700;text-decoration:underline;text-underline-offset:3px}
-.account-note{display:flex;gap:7px;margin:13px 0 0;font-size:11px;color:var(--muted)}
-.account-note svg{width:15px;height:15px}
 .toast{position:fixed;z-index:5;right:15px;bottom:calc(75px + env(safe-area-inset-bottom));max-width:calc(100% - 30px);padding:9px 13px;border-radius:8px;background:#2e2225;color:white;box-shadow:0 3px 13px #1e0c2240;animation:appear .22s ease-out}
 @keyframes appear{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 @media(min-width:480px){
@@ -176,7 +179,7 @@ dialog::backdrop{background:#26191db0}
   .segmented{flex:0 1 auto}
   .period{font-size:14px}
   .calendar-cell{min-height:54px}
-  .legend{justify-content:flex-start;padding-inline:15px;gap:12px}
+  .filters{padding-inline:16px}
   .agenda{padding:14px 16px 17px}
   .footer{padding-bottom:18px}
   .toast{bottom:16px}
@@ -200,7 +203,7 @@ dialog::backdrop{background:#26191db0}
   .cell-preview.filming{background:#f5dfe6;color:#862a42}
   .cell-preview.rehearsal{background:#f5ead9;color:#744a26}
   .cell-preview.show{background:#eee6f7;color:#604079}
-  .legend{padding-inline:20px}
+  .filters{padding-inline:20px}
   .agenda{padding-inline:20px}
   .chat-heading,.chat-log,.chat-compose,.theater-card{padding-inline:17px}
   .chat-log{min-height:155px}

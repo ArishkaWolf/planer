@@ -33,6 +33,66 @@ export const moveMonth = (date, amount) => {
 export const sortEvents = events => [...events].sort((a, b) => (a.date + (a.time || '00:00')).localeCompare(b.date + (b.time || '00:00')) || a.title.localeCompare(b.title, 'ru'))
 export const countLabel = count => count + ' ' + ({one:'событие', few:'события', many:'событий'}[new Intl.PluralRules('ru').select(count)] || 'события')
 
+const maxLinkLength = 60_000
+const maxSnapshotBytes = 1_000_000
+
+export const isCalendarDate = value => typeof value === 'string'
+  && /^(?:19|20|21)\d{2}-\d{2}-\d{2}$/.test(value) && stamp(dateOf(value)) === value
+
+export function isCalendarEvent(event) {
+  return event && typeof event.id === 'string' && typeof event.title === 'string'
+    && event.title.trim().length > 0 && event.title.length <= 250
+    && isCalendarDate(event.date) && typeof event.time === 'string'
+    && (event.time === '' || /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(event.time))
+    && typeof event.type === 'string' && Object.hasOwn(categories, event.type)
+}
+
+export async function scheduleFragment(events, date = today()) {
+  const rows = sortEvents(events).map(({title, date, time, type}) => [title, date, time, type])
+  const bytes = new TextEncoder().encode(JSON.stringify([stamp(date), rows]))
+  if (bytes.length > maxSnapshotBytes) throw new Error('Для одной ссылки событий слишком много.')
+  const compressed = typeof CompressionStream === 'function'
+  const data = compressed
+    ? new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer())
+    : bytes
+  if (data.length > maxLinkLength * 0.75) throw new Error('Для одной ссылки событий слишком много.')
+  const text = btoa(Array.from(data, byte => String.fromCharCode(byte)).join(''))
+    .replaceAll('+','-').replaceAll('/','_').replace(/=+$/u,'')
+  return '#schedule=' + (compressed ? 'gz' : 'v1') + '.' + text
+}
+
+export async function scheduleFromFragment(fragment) {
+  const match = /^#schedule=(gz|v1)\.([a-zA-Z0-9_-]+)$/.exec(fragment)
+  if (!match || match[2].length > maxLinkLength) throw new Error('Не удалось открыть ссылку на расписание.')
+  const data = Uint8Array.from(atob(match[2].replaceAll('-','+').replaceAll('_','/')), char => char.charCodeAt(0))
+  let stream = new Blob([data]).stream()
+  if (match[1] === 'gz') stream = stream.pipeThrough(new DecompressionStream('gzip'))
+  const reader = stream.getReader()
+  const decoder = new TextDecoder('utf-8', {fatal:true})
+  let size = 0
+  let json = ''
+  while (true) {
+    const {value, done} = await reader.read()
+    if (done) break
+    size += value.byteLength
+    if (size > maxSnapshotBytes) {
+      await reader.cancel()
+      throw new Error('Ссылка на расписание слишком большая.')
+    }
+    json += decoder.decode(value, {stream:true})
+  }
+  const payload = JSON.parse(json + decoder.decode())
+  if (!Array.isArray(payload) || !isCalendarDate(payload[0]) || !Array.isArray(payload[1])) throw new Error('Не удалось открыть ссылку на расписание.')
+  const events = payload[1].map((row, index) => {
+    if (!Array.isArray(row) || row.length !== 4) throw new Error('В ссылке есть повреждённые события.')
+    const [title, date, time, type] = row
+    const event = {id:'shared-' + index, title, date, time, type}
+    if (!isCalendarEvent(event)) throw new Error('В ссылке есть повреждённые события.')
+    return event
+  })
+  return {date:payload[0], events}
+}
+
 function exactDate(year, month, day) {
   if (year < 1900 || year > 2199) return null
   const date = new Date(year, month - 1, day, 12)
