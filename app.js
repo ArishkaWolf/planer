@@ -10,7 +10,6 @@ const escape = value => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;',
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
 const theaterUrl = 'https://nmdt.ru/afisha/events/'
 const scheduleKey = 'antrakt:calendar:v2'
-const legacyPrefix = 'antrakt:v1:'
 const dialog = $('modal')
 const initialChat = $('chat-log').innerHTML
 const state = {date:today(), view:'month', panel:'calendar', filter:'all', personal:[], shared:null, feed:{months:[],events:[],stale:false}, feedLoading:true}
@@ -25,7 +24,10 @@ function calendarEvents() {
 function byDay() {
   const map = new Map()
   for (const event of sortEvents(calendarEvents())) {
-    if (state.filter !== 'all' && event.type !== state.filter) continue
+    const matches = state.filter === 'mine'
+      ? event.source === 'theater' && event.myShow === true
+      : state.filter === 'all' || event.type === state.filter
+    if (!matches) continue
     if (!map.has(event.date)) map.set(event.date, [])
     map.get(event.date).push(event)
   }
@@ -95,6 +97,15 @@ function renderCalendar(restoreFocus = false) {
   $('calendar-content').innerHTML = contents
   document.querySelectorAll('[data-view]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.view === state.view)))
   document.querySelectorAll('[data-filter]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.filter === state.filter)))
+  const castStatus = $('cast-status')
+  let castMessage = ''
+  if (state.filter === 'mine') {
+    if (state.feedLoading) castMessage = 'Загружаем афишу…'
+    else if (!state.feed.months.length) castMessage = 'Афиша пока недоступна.'
+    else if (state.feed.events.some(event => typeof event.myShow !== 'boolean')) castMessage = 'Состав некоторых спектаклей пока не удалось проверить.'
+  }
+  castStatus.textContent = castMessage
+  castStatus.hidden = !castMessage
   $('agenda-heading').textContent = selected === current ? 'Сегодня, ' + shortLabel(date) : dayLabel(date)
   const agenda = map.get(selected) || []
   $('agenda-count').textContent = countLabel(agenda.length)
@@ -240,27 +251,16 @@ window.addEventListener('storage', event => {
   if (!state.shared) renderCalendar()
 })
 
-function hasLegacySchedule() {
-  try {
-    return Object.keys(localStorage).some(key => key.startsWith(legacyPrefix))
-  } catch {
-    return false
-  }
-}
-
 async function shareDialog() {
-  const legacy = hasLegacySchedule() ? '<button class="text-button" id="restore-legacy" type="button">Перенести старые записи</button>' : ''
   showDialog('Поделиться расписанием','КАЛЕНДАРЬ',`
     <p class="dialog-copy">Ссылка открывает копию личных событий на момент её создания. Расписание увидит любой, у кого есть ссылка.</p>
     <div id="share-controls" class="dialog-form">
       <label id="share-field" hidden>Ссылка для просмотра<input id="share-link" type="text" readonly></label>
       <p class="form-message" role="status">Готовим ссылку…</p>
-      <div class="dialog-actions">${legacy}<button id="copy-link" type="button" class="button primary" disabled>Скопировать ссылку</button></div>
+      <div class="dialog-actions"><button id="copy-link" type="button" class="button primary" disabled>Скопировать ссылку</button></div>
     </div>`)
   const controls = $('share-controls')
   const message = controls.querySelector('.form-message')
-  const restore = $('restore-legacy')
-  if (restore) restore.onclick = restoreLegacy
   try {
     const fragment = await scheduleFragment(readLocalSchedule())
     if (!controls.isConnected || !dialog.open) return
@@ -284,45 +284,6 @@ async function shareDialog() {
     }
   } catch (error) {
     message.textContent = error.message
-  }
-}
-
-function restoreLegacy() {
-  showDialog('Перенести старые записи','КАЛЕНДАРЬ',`
-    <p class="dialog-copy">Введи прежние логин и пароль, чтобы открыть сохранённые в этом браузере записи. Вход для дальнейшей работы не понадобится.</p>
-    <form class="dialog-form" id="restore-form">
-      <label>Прежний логин<input name="login" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required></label>
-      <label>Прежний пароль<input name="password" type="password" autocomplete="current-password" maxlength="128" required></label>
-      <p class="form-message" role="status"></p>
-      <div class="dialog-actions"><button class="button primary" type="submit">Перенести записи</button></div>
-    </form>`)
-  $('restore-form').onsubmit = async event => {
-    event.preventDefault()
-    const form = event.target
-    const fields = new FormData(form)
-    const button = form.querySelector('[type=submit]')
-    const message = form.querySelector('.form-message')
-    button.disabled = true
-    try {
-      const {readLegacyEvents} = await import('./accounts.js')
-      const saved = await readLegacyEvents(fields.get('login'),fields.get('password'))
-      if (!form.isConnected || !dialog.open) return
-      const restored = saved.filter(isCalendarEvent)
-      let added = 0
-      await updateSchedule(events => {
-        const known = new Set(events.map(event => event.id))
-        const newEvents = restored.filter(event => !known.has(event.id))
-        added = newEvents.length
-        return [...events, ...newEvents]
-      })
-      dialog.close()
-      renderCalendar()
-      notify(added ? 'Записи перенесены: ' + added : 'Новых записей для переноса нет.')
-    } catch (error) {
-      message.textContent = error.message
-    } finally {
-      button.disabled = false
-    }
   }
 }
 
@@ -534,9 +495,6 @@ document.addEventListener('click', event => {
 const now = today()
 $('today-number').textContent = pad(now.getDate())
 $('today-month').textContent = months[now.getMonth()].toLocaleLowerCase('ru-RU')
-if (/(?:^|[&#])(?:access_token|error_code)=/.test(location.hash)) {
-  history.replaceState(null,'',location.pathname + location.search)
-}
 refreshLocalSchedule()
 await applySharedLink()
 window.addEventListener('hashchange', () => void applySharedLink())

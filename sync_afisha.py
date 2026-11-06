@@ -5,6 +5,7 @@ import json
 import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
+from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlencode, urljoin
@@ -15,6 +16,8 @@ SOURCE = 'https://nmdt.ru/afisha/events/'
 RELAY = 'https://api.allorigins.win/raw?'
 MONTHS = 'января февраля марта апреля мая июня июля августа сентября октября ноября декабря'.split()
 PERFORMANCE = re.compile(r'/performance/\d+/?')
+CAST_HEADING = re.compile(r'<(?:b|strong)\b[^>]*>\s*роли(?:\s|&nbsp;)+исполняют\s*:?\s*</(?:b|strong)>', re.IGNORECASE)
+ACTOR_NAMES = {'дмитрий нестеров', 'нестеров дмитрий', 'нестеров дмитрий викторович', 'дмитрий викторович нестеров'}
 
 
 class Schedule(HTMLParser):
@@ -101,8 +104,27 @@ def parse_month(html, year, month):
     return sorted(events.values(), key=lambda row: (row['date'], row['time'], row['title']))
 
 
-def download_month(year, month):
-    url = SOURCE + '?' + urlencode({'Month': f'{month:02}', 'Year': year})
+def parse_cast(html):
+    if 'постановка:' not in html.casefold() or '</html>' not in html.lower():
+        raise ValueError('Expected a complete performance page')
+    heading = CAST_HEADING.search(html)
+    if not heading:
+        return False
+    end = html.lower().find('</td>', heading.end())
+    if end == -1:
+        raise ValueError('Cast section is incomplete')
+    cell = html[heading.end():end]
+    performers = re.findall(r'<nobr\b[^>]*>(.*?)</nobr>', cell, re.IGNORECASE | re.DOTALL)
+    if not performers:
+        raise ValueError('Cast rows could not be recognized')
+    for performer in performers:
+        name = normalize(unescape(re.sub(r'<[^>]*>', '', performer))).lstrip('–—- ').casefold()
+        if name in ACTOR_NAMES:
+            return True
+    return False
+
+
+def download_page(url, parse):
     failures = []
     for address, label in ((url, 'theater'), (RELAY + urlencode({'url': url}), 'public relay')):
         request = Request(address, headers={'User-Agent': 'Antrakt-calendar/1.0', 'Accept': 'text/html'})
@@ -114,7 +136,7 @@ def download_month(year, month):
                 encoding = response.headers.get_content_charset()
             for charset in dict.fromkeys(filter(None, (encoding, 'utf-8', 'windows-1251'))):
                 try:
-                    return parse_month(data.decode(charset), year, month), label
+                    return parse(data.decode(charset)), label
                 except (LookupError, ValueError) as error:
                     failure = error
             failures.append(f'{label}: {failure}')
@@ -123,13 +145,42 @@ def download_month(year, month):
     raise ValueError('; '.join(failures))
 
 
+def download_month(year, month):
+    url = SOURCE + '?' + urlencode({'Month': f'{month:02}', 'Year': year})
+    return download_page(url, lambda html: parse_month(html, year, month))
+
+
+def annotate_cast(events, snapshots, refresh_months):
+    known = {
+        event['url']: event['myShow']
+        for snapshot in snapshots
+        for event in snapshot['events']
+        if isinstance(event.get('myShow'), bool)
+    }
+    urls = {
+        event['url'] for event in events
+        if event['date'][:7] in refresh_months or event['url'] not in known
+    }
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        pending = {url: pool.submit(download_page, url, parse_cast) for url in sorted(urls)}
+        for url, future in pending.items():
+            try:
+                known[url], _ = future.result()
+            except ValueError as error:
+                print(f'::warning::Could not check cast for {url}: {error}')
+    verified = {event['url'] for event in events} & known.keys()
+    print(f'Cast checked for {len(verified)} productions')
+    return [{**event, 'myShow': known.get(event['url'])} for event in events]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--baseline', type=Path, default=Path('afisha.json'))
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     snapshots = [json.loads(path.read_text(encoding='utf-8')) for path in {args.baseline, Path('afisha.json')} if path.is_file()]
-    previous = max(snapshots, key=lambda item: datetime.fromisoformat(item['updatedAt'].replace('Z', '+00:00')))
+    snapshots.sort(key=lambda item: datetime.fromisoformat(item['updatedAt'].replace('Z', '+00:00')))
+    previous = snapshots[-1]
     now = datetime.now(ZoneInfo('Europe/Moscow'))
     absolute_month = now.year * 12 + now.month - 1
     months = {}
@@ -159,6 +210,7 @@ def main():
             'stale': len(months) < 4,
             'events': sorted(events, key=lambda row: (row['date'], row['time'], row['title'])),
         }
+    result['events'] = annotate_cast(result['events'], snapshots, pending.keys())
     args.output.parent.mkdir(parents=True, exist_ok=True)
     temporary = args.output.with_suffix('.tmp')
     temporary.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')

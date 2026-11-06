@@ -31,7 +31,7 @@
     <div class="shell topbar-inner">
       <button class="brand" type="button" data-panel="calendar" aria-label="Антракт, календарь">
         <img src="./mark.svg" width="40" height="40" alt="">
-        <span><strong>Антракт<span class="brand-dot">.</span></strong><small>ПЛАНЕР АКТЁРА</small></span>
+        <span><strong>Антракт</strong><small>ПЛАНЕР АКТЁРА</small></span>
       </button>
       <nav class="navigation" aria-label="Разделы планера">
         <button type="button" data-panel="calendar" aria-current="page"><svg><use href="#i-calendar"/></svg>Календарь</button>
@@ -82,8 +82,10 @@
           <button type="button" data-filter="filming" aria-pressed="false"><i class="dot filming"></i>Съёмки</button>
           <button type="button" data-filter="rehearsal" aria-pressed="false"><i class="dot rehearsal"></i>Репетиции</button>
           <button type="button" data-filter="show" aria-pressed="false"><i class="dot show"></i>Спектакли</button>
+          <button type="button" data-filter="mine" aria-pressed="false"><svg aria-hidden="true"><use href="#i-star"/></svg>Мои спектакли</button>
           <button type="button" data-filter="personal" aria-pressed="false"><i class="dot personal"></i>Личное</button>
         </div>
+        <p id="cast-status" class="cast-status" role="status" hidden></p>
         <div id="calendar-content"></div>
         <section class="agenda" aria-labelledby="agenda-heading">
           <div class="agenda-heading"><div><p class="eyebrow">ПЛАНЫ НА ДЕНЬ</p><h3 id="agenda-heading"></h3></div><span id="agenda-count" class="counter"></span></div>
@@ -114,7 +116,7 @@
         </section>
       </aside>
     </div>
-    <footer class="footer"><span>АНТРАКТ<span class="brand-dot">.</span> / ПЛАНЕР АКТЁРА</span><span>Новошахтинск · время афиши по Москве</span></footer>
+    <footer class="footer"><span>АНТРАКТ / ПЛАНЕР АКТЁРА</span><span>Новошахтинск · время афиши по Москве</span></footer>
   </main>
 
   <dialog id="modal" aria-labelledby="dialog-title"><div id="modal-content"></div></dialog>

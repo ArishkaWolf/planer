@@ -21,7 +21,6 @@ h2,h3{font-family:var(--serif);font-weight:700;letter-spacing:-.038em;line-heigh
 .brand img{width:36px;height:36px}
 .brand strong{display:block;font:700 25px/.9 var(--serif);letter-spacing:-.065em}
 .brand small{display:block;margin-top:6px;color:var(--muted);font-size:8px;font-weight:800;letter-spacing:.16em}
-.brand-dot{color:var(--wine)}
 .navigation{display:flex;align-items:center;gap:4px;z-index:4;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--line);justify-content:space-evenly;padding:6px 10px calc(6px + env(safe-area-inset-bottom))}
 .navigation button{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:7px 5px;border:0;border-radius:8px;background:none;font-size:11px;font-weight:700;color:var(--muted);min-height:49px;transition:background .18s,color .18s}
 .navigation button[aria-current="page"]{background:var(--pink);color:var(--wine)}
@@ -86,6 +85,8 @@ h2,h3{font-family:var(--serif);font-weight:700;letter-spacing:-.038em;line-heigh
 .filters button{display:inline-flex;align-items:center;gap:4px;padding:0 8px;min-height:36px;border:1px solid var(--line);border-radius:20px;background:var(--white);color:var(--muted);font-weight:700;font-size:11px;white-space:nowrap;transition:background .18s,border-color .18s,color .18s}
 .filters button:hover{background:#f7efe9}
 .filters button[aria-pressed="true"]{border-color:#d5a5ae;background:var(--pink);color:var(--wine)}
+.filters svg{width:13px;height:13px;color:var(--wine)}
+.cast-status{margin:0 12px 12px;color:var(--muted);font-size:11px}
 .agenda{padding:14px 12px 15px;border-top:1px solid var(--line)}
 .agenda-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}
 .agenda-heading h3{font-size:23px;margin-top:4px}

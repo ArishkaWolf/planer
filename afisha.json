@@ -1,445 +1,507 @@
 {
-  "updatedAt": "2026-11-06T16:19:50.210398+00:00",
+  "updatedAt": "2026-11-06T18:12:26.920506+00:00",
   "months": [
     "2026-10",
     "2026-11",
     "2026-12"
   ],
-  "stale": false,
+  "stale": true,
   "events": [
     {
       "id": "theater-67e56f913a6540105ab9",
       "date": "2026-10-03",
       "time": "18:00",
       "title": "Дом Бернарды Альбы",
-      "url": "https://nmdt.ru/performance/584"
+      "url": "https://nmdt.ru/performance/584",
+      "myShow": false
     },
     {
       "id": "theater-7909a81ae0cf81c97240",
       "date": "2026-10-04",
       "time": "12:00",
       "title": "Волшебная лампа Аладдина",
-      "url": "https://nmdt.ru/performance/444"
+      "url": "https://nmdt.ru/performance/444",
+      "myShow": true
     },
     {
       "id": "theater-5d68fc2dd1ada97e63a1",
       "date": "2026-10-10",
       "time": "18:00",
       "title": "Моя профессия - синьор из общества",
-      "url": "https://nmdt.ru/performance/677"
+      "url": "https://nmdt.ru/performance/677",
+      "myShow": true
     },
     {
       "id": "theater-1318a5926e42f7bf15a5",
       "date": "2026-10-23",
       "time": "18:00",
       "title": "Двенадцать стульев. Премьера!",
-      "url": "https://nmdt.ru/performance/675"
+      "url": "https://nmdt.ru/performance/675",
+      "myShow": true
     },
     {
       "id": "theater-c34a3b24e279eee28359",
       "date": "2026-10-24",
       "time": "18:00",
       "title": "Двенадцать стульев. Премьера!",
-      "url": "https://nmdt.ru/performance/675"
+      "url": "https://nmdt.ru/performance/675",
+      "myShow": true
     },
     {
       "id": "theater-a3e4463d157a02ca7ff1",
       "date": "2026-10-25",
       "time": "12:00",
       "title": "Карлик Нос",
-      "url": "https://nmdt.ru/performance/655"
+      "url": "https://nmdt.ru/performance/655",
+      "myShow": false
     },
     {
       "id": "theater-214236d4d02b3deda815",
       "date": "2026-10-26",
       "time": "16:00",
       "title": "XI Областной Конкурс самостоятельных работ профессиональных артистов «БРАВО!»",
-      "url": "https://nmdt.ru/performance/710"
+      "url": "https://nmdt.ru/performance/710",
+      "myShow": false
     },
     {
       "id": "theater-3e7ba4d9374b82e08361",
       "date": "2026-10-26",
       "time": "16:00",
       "title": "Онлайн-трансляция 1 отделения XI Областного Конкурса самостоятельных работ профессиональных артистов «БРАВО!»",
-      "url": "https://nmdt.ru/performance/715"
+      "url": "https://nmdt.ru/performance/715",
+      "myShow": false
     },
     {
       "id": "theater-5ec0d09abe040f90486a",
       "date": "2026-10-26",
       "time": "18:00",
       "title": "XI Областной Конкурс самостоятельных работ профессиональных артистов «БРАВО!»",
-      "url": "https://nmdt.ru/performance/710"
+      "url": "https://nmdt.ru/performance/710",
+      "myShow": false
     },
     {
       "id": "theater-9e72ee42782211a5521a",
       "date": "2026-10-26",
       "time": "18:00",
       "title": "Онлайн-трансляция 2 отделения XI Областного Конкурса самостоятельных работ профессиональных артистов «БРАВО!»",
-      "url": "https://nmdt.ru/performance/714"
+      "url": "https://nmdt.ru/performance/714",
+      "myShow": false
     },
     {
       "id": "theater-78d50cf1e22f53e019e1",
       "date": "2026-10-31",
       "time": "18:00",
       "title": "Цианистый калий... с молоком или без?",
-      "url": "https://nmdt.ru/performance/50"
+      "url": "https://nmdt.ru/performance/50",
+      "myShow": false
     },
     {
       "id": "theater-c94bfe9d2d5f58cd3d41",
       "date": "2026-11-01",
       "time": "18:00",
       "title": "Шум за сценой",
-      "url": "https://nmdt.ru/performance/120"
+      "url": "https://nmdt.ru/performance/120",
+      "myShow": false
     },
     {
       "id": "theater-ba4d4aa35968678341d6",
       "date": "2026-11-06",
       "time": "09:00",
       "title": "«Выставка картин Ольги Алфимовой \"Счастье рядом\"»",
-      "url": "https://nmdt.ru/performance/253"
+      "url": "https://nmdt.ru/performance/253",
+      "myShow": false
     },
     {
       "id": "theater-8cb8beea7e4348d12cb8",
       "date": "2026-11-06",
       "time": "17:00",
       "title": "Праздничный вечер, посвященный 30-летию театра",
-      "url": "https://nmdt.ru/performance/716"
+      "url": "https://nmdt.ru/performance/716",
+      "myShow": false
     },
     {
       "id": "theater-71df7306c473d3033e93",
       "date": "2026-11-07",
       "time": "18:00",
       "title": "Двенадцать стульев. Премьера!",
-      "url": "https://nmdt.ru/performance/675"
+      "url": "https://nmdt.ru/performance/675",
+      "myShow": true
     },
     {
       "id": "theater-287a3dd880ff59841bc0",
       "date": "2026-11-08",
       "time": "18:00",
       "title": "Двенадцать стульев. Премьера!",
-      "url": "https://nmdt.ru/performance/675"
+      "url": "https://nmdt.ru/performance/675",
+      "myShow": true
     },
     {
       "id": "theater-0d1760b4823b38af4318",
       "date": "2026-11-11",
       "time": "16:00",
       "title": "\"Моя профессия - синьор из общества\" на фестивале «СенсАрт» в ОДНТ г. Ростов на Дону",
-      "url": "https://nmdt.ru/performance/711"
+      "url": "https://nmdt.ru/performance/711",
+      "myShow": true
     },
     {
       "id": "theater-74527a684a1784711216",
       "date": "2026-11-12",
       "time": "16:00",
       "title": "\"Моя профессия - синьор из общества\" на фестивале «СенсАрт» в ОДНТ г. Ростов на Дону",
-      "url": "https://nmdt.ru/performance/711"
+      "url": "https://nmdt.ru/performance/711",
+      "myShow": true
     },
     {
       "id": "theater-a09fe3066a45ace9e035",
       "date": "2026-11-14",
       "time": "18:00",
       "title": "Моя профессия - синьор из общества",
-      "url": "https://nmdt.ru/performance/677"
+      "url": "https://nmdt.ru/performance/677",
+      "myShow": true
     },
     {
       "id": "theater-a2119632c4f78a6a9bf2",
       "date": "2026-11-15",
       "time": "12:00",
       "title": "Волшебная лампа Аладдина",
-      "url": "https://nmdt.ru/performance/444"
+      "url": "https://nmdt.ru/performance/444",
+      "myShow": true
     },
     {
       "id": "theater-fa3e69a30adb9ed24de1",
       "date": "2026-11-17",
       "time": "09:30",
       "title": "IV Фестиваль дошкольных театральных коллективов \"У колыбели таланта\"",
-      "url": "https://nmdt.ru/performance/717"
+      "url": "https://nmdt.ru/performance/717",
+      "myShow": false
     },
     {
       "id": "theater-af605a15213a84ef63d1",
       "date": "2026-11-18",
       "time": "09:30",
       "title": "IV Фестиваль дошкольных театральных коллективов \"У колыбели таланта\"",
-      "url": "https://nmdt.ru/performance/717"
+      "url": "https://nmdt.ru/performance/717",
+      "myShow": false
     },
     {
       "id": "theater-06096ad8e85c4e66b0ec",
       "date": "2026-11-19",
       "time": "09:30",
       "title": "IV Фестиваль дошкольных театральных коллективов \"У колыбели таланта\"",
-      "url": "https://nmdt.ru/performance/717"
+      "url": "https://nmdt.ru/performance/717",
+      "myShow": false
     },
     {
       "id": "theater-d66924eaf1e070d71cb7",
       "date": "2026-11-20",
       "time": "18:00",
       "title": "На всякого мудреца довольно простоты. Премьера!",
-      "url": "https://nmdt.ru/performance/676"
+      "url": "https://nmdt.ru/performance/676",
+      "myShow": true
     },
     {
       "id": "theater-bfa10d64dd96e03dcafa",
       "date": "2026-11-21",
       "time": "17:00",
       "title": "«Арбенин. Мечты и сны» ПРЕМЬЕРА! Гастроли Театра \"Чеховский клуб \"Классика\"\" гимназии № 118 (г. Ростов-на-Дону)",
-      "url": "https://nmdt.ru/performance/708"
+      "url": "https://nmdt.ru/performance/708",
+      "myShow": false
     },
     {
       "id": "theater-e6f91d50a228bf3a2986",
       "date": "2026-11-22",
       "time": "10:00",
       "title": "«Коза-Дереза» Гастроли Горловского молодёжного театра «Юность»",
-      "url": "https://nmdt.ru/performance/712"
+      "url": "https://nmdt.ru/performance/712",
+      "myShow": false
     },
     {
       "id": "theater-1f17f80bf1ef20dd4aab",
       "date": "2026-11-22",
       "time": "12:00",
       "title": "«Цыплёнок Желток и другие». Гастроли Горловского молодёжного театра «Юность»",
-      "url": "https://nmdt.ru/performance/713"
+      "url": "https://nmdt.ru/performance/713",
+      "myShow": false
     },
     {
       "id": "theater-db6730370ce3ad5cb237",
       "date": "2026-11-28",
       "time": "17:00",
       "title": "Братья Карамазовы",
-      "url": "https://nmdt.ru/performance/644"
+      "url": "https://nmdt.ru/performance/644",
+      "myShow": true
     },
     {
       "id": "theater-f940e0fb2f9e62bf7273",
       "date": "2026-11-29",
       "time": "17:00",
       "title": "Братья Карамазовы",
-      "url": "https://nmdt.ru/performance/644"
+      "url": "https://nmdt.ru/performance/644",
+      "myShow": true
     },
     {
       "id": "theater-572e677495caa381aea1",
       "date": "2026-12-01",
       "time": "10:00",
       "title": "IV Фестиваль дошкольных театральных коллективов \"У колыбели таланта\"",
-      "url": "https://nmdt.ru/performance/717"
+      "url": "https://nmdt.ru/performance/717",
+      "myShow": false
     },
     {
       "id": "theater-f88a8016bc6dab02021c",
       "date": "2026-12-05",
       "time": "17:00",
       "title": "Фауст",
-      "url": "https://nmdt.ru/performance/452"
+      "url": "https://nmdt.ru/performance/452",
+      "myShow": true
     },
     {
       "id": "theater-e29d96032b1bd79f2b85",
       "date": "2026-12-06",
       "time": "17:00",
       "title": "Фауст",
-      "url": "https://nmdt.ru/performance/452"
+      "url": "https://nmdt.ru/performance/452",
+      "myShow": true
     },
     {
       "id": "theater-d9a60dee1efb3f55628a",
       "date": "2026-12-11",
       "time": "18:00",
       "title": "Шагреневая кожа",
-      "url": "https://nmdt.ru/performance/59"
+      "url": "https://nmdt.ru/performance/59",
+      "myShow": true
     },
     {
       "id": "theater-50a9f19aeeacec510ff4",
       "date": "2026-12-12",
       "time": "17:00",
       "title": "Двенадцать стульев. Премьера!",
-      "url": "https://nmdt.ru/performance/675"
+      "url": "https://nmdt.ru/performance/675",
+      "myShow": true
     },
     {
       "id": "theater-ac389e8cb7b2275ea78e",
       "date": "2026-12-13",
       "time": "17:00",
       "title": "Двенадцать стульев. Премьера!",
-      "url": "https://nmdt.ru/performance/675"
+      "url": "https://nmdt.ru/performance/675",
+      "myShow": true
     },
     {
       "id": "theater-d977d5e9577b4f81f713",
       "date": "2026-12-23",
       "time": "10:00",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-2bef645d1e0d3e6d3ac3",
       "date": "2026-12-23",
       "time": "12:30",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-951c420e49a7d1a6389f",
       "date": "2026-12-23",
       "time": "15:00",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-78a9dbbe9a2e15221935",
       "date": "2026-12-24",
       "time": "10:00",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-0ceaf98fae2c014bfa12",
       "date": "2026-12-24",
       "time": "12:30",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-24aaf6d18051453710bc",
       "date": "2026-12-24",
       "time": "15:00",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-c1f49e564ea8c15b72a2",
       "date": "2026-12-25",
       "time": "10:00",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-88c1918375c502f3904f",
       "date": "2026-12-25",
       "time": "12:30",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-2a2bf62b55e8b682848b",
       "date": "2026-12-25",
       "time": "15:00",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-986e8c77fa8cfe0d0f0c",
       "date": "2026-12-26",
       "time": "10:00",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-eeac3e75ed00a4f90f43",
       "date": "2026-12-26",
       "time": "12:30",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-da3b6f2d849933f065c6",
       "date": "2026-12-26",
       "time": "15:00",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-975abdfecbe4e6d64952",
       "date": "2026-12-26",
       "time": "18:00",
       "title": "Новогодний концерт",
-      "url": "https://nmdt.ru/performance/455"
+      "url": "https://nmdt.ru/performance/455",
+      "myShow": false
     },
     {
       "id": "theater-33588a3d117ff6415f99",
       "date": "2026-12-27",
       "time": "10:00",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-b595695119eefaca8240",
       "date": "2026-12-27",
       "time": "12:30",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-648f6b1f7c8a5af4af83",
       "date": "2026-12-27",
       "time": "15:00",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-dc5d05e8a5401225f317",
       "date": "2026-12-27",
       "time": "18:00",
       "title": "Новогодний концерт",
-      "url": "https://nmdt.ru/performance/455"
+      "url": "https://nmdt.ru/performance/455",
+      "myShow": false
     },
     {
       "id": "theater-9136fbe7efe596dc0314",
       "date": "2026-12-28",
       "time": "10:00",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-fa7edce01ba5c1327ea9",
       "date": "2026-12-28",
       "time": "12:30",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-8d76397c18eec2378b3e",
       "date": "2026-12-28",
       "time": "15:00",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-45e016d1bbf50a76fa4e",
       "date": "2026-12-29",
       "time": "10:00",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-a8640c14e6aa8678890c",
       "date": "2026-12-29",
       "time": "12:30",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-e889ef4891e19d7a6abf",
       "date": "2026-12-29",
       "time": "15:00",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-e5933cc0aba49f5f6f6e",
       "date": "2026-12-29",
       "time": "18:00",
       "title": "Новогодний концерт",
-      "url": "https://nmdt.ru/performance/455"
+      "url": "https://nmdt.ru/performance/455",
+      "myShow": false
     },
     {
       "id": "theater-c0d4e73dbaeaee53a602",
       "date": "2026-12-30",
       "time": "10:00",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-99b0a4ff92df07364b4f",
       "date": "2026-12-30",
       "time": "12:30",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     },
     {
       "id": "theater-63c955671a5cc5f0cd89",
       "date": "2026-12-30",
       "time": "15:00",
       "title": "Снежная королева",
-      "url": "https://nmdt.ru/performance/718"
+      "url": "https://nmdt.ru/performance/718",
+      "myShow": false
     }
   ]
 }
