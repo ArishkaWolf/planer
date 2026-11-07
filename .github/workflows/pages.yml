@@ -35,7 +35,9 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/configure-pages@v5
       - name: Test planner input
-        run: node --test tests/planner.test.mjs
+        run: |
+          npm ci --ignore-scripts
+          npm test
       - uses: actions/cache/restore@v4
         with:
           path: .afisha-cache
@@ -55,11 +57,13 @@ jobs:
       - name: Assemble the planner
         run: |
           mkdir -p dist
-          cp index.html styles.css app.js planner.js sync.js sync-config.js logo.png curtain.svg dist/
+          cp index.html styles.css app.js planner.js sync.js account.js sync-config.js logo.png apple-touch-icon.png manifest.webmanifest curtain.svg dist/
           version="${GITHUB_SHA:0:12}"
           sed -i "s|./styles.css\"|./styles.css?v=$version\"|; s|./app.js\"|./app.js?v=$version\"|" dist/index.html
-          sed -i "s|./planner.js'|./planner.js?v=$version'|; s|./sync.js'|./sync.js?v=$version'|" dist/app.js
+          sed -i "s|./apple-touch-icon.png\"|./apple-touch-icon.png?v=$version\"|; s|./manifest.webmanifest\"|./manifest.webmanifest?v=$version\"|" dist/index.html
+          sed -i "s|./planner.js'|./planner.js?v=$version'|; s|./sync.js'|./sync.js?v=$version'|; s|./account.js'|./account.js?v=$version'|" dist/app.js
           sed -i "s|./planner.js'|./planner.js?v=$version'|; s|./sync-config.js'|./sync-config.js?v=$version'|" dist/sync.js
+          sed -i "s|./sync.js'|./sync.js?v=$version'|; s|./sync-config.js'|./sync-config.js?v=$version'|" dist/account.js
           baseline=afisha.json
           if test -s .afisha-cache/afisha.json; then baseline=.afisha-cache/afisha.json; fi
           cp "$baseline" dist/afisha.json

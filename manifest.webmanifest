@@ -1,0 +1,14 @@
+{
+  "id": "./",
+  "name": "Антракт",
+  "short_name": "Антракт",
+  "lang": "ru",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f1eb",
+  "theme_color": "#f5f1eb",
+  "icons": [
+    {"src": "./apple-touch-icon.png", "sizes": "554x554", "type": "image/png", "purpose": "any"}
+  ]
+}

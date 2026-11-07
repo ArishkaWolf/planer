@@ -17,6 +17,11 @@ h2,h3{font-family:var(--serif);font-weight:700;letter-spacing:-.038em;line-heigh
 .shell{width:min(100% - 32px,1240px);margin-inline:auto}
 .topbar{background:var(--white);border-bottom:1px solid var(--line)}
 .topbar-inner{height:70px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.header-actions{display:flex;align-items:center;gap:6px;min-width:0}
+.account-button span{display:block;max-width:75px;overflow:hidden;text-overflow:ellipsis}
+.share-button{width:36px;padding:0}
+.share-button span{display:none}
+.account-switch{justify-self:center;margin-top:6px;min-height:36px}
 .brand{display:flex;align-items:center;gap:10px;border:0;background:none;padding:0;text-align:left}
 .brand-mark{position:relative;width:36px;height:36px;overflow:hidden;border-radius:9px;background:#fdfdfd;flex:none}
 .brand-mark img{position:absolute;top:50%;left:50%;width:76px;height:76px;transform:translate(-50%,-50%)}
@@ -219,6 +224,8 @@ dialog::backdrop{background:#26191db0}
   .toast{bottom:16px}
 }
 @media(min-width:1020px){
+  .share-button{width:auto;padding-inline:12px}
+  .share-button span{display:inline}
   .shell{width:min(100% - 68px,1240px)}
   .marquee{min-height:205px;padding:29px 40px}
   .marquee .eyebrow,.section-heading .eyebrow,.chat-heading .eyebrow,.theater-top .eyebrow{font-size:10px}
@@ -249,5 +256,5 @@ dialog::backdrop{background:#26191db0}
   .chat-form input{font-size:13px}
   .year-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
 }
-@media(max-width:350px){.shell{width:calc(100% - 20px)}.marquee h1{font-size:30px}.period{font-size:12px}.date-controls{gap:2px}.icon-button{width:32px}.marquee{padding-inline:12px}.section-heading{gap:8px;flex-wrap:wrap}.section-heading h2{font-size:26px}.section-heading .button{font-size:12px;padding-inline:10px}}
+@media(max-width:350px){.shell{width:calc(100% - 20px)}.marquee h1{font-size:30px}.period{font-size:12px}.date-controls{gap:2px}.icon-button{width:32px}.marquee{padding-inline:12px}.section-heading{gap:8px;flex-wrap:wrap}.section-heading h2{font-size:26px}.section-heading .button{font-size:12px;padding-inline:10px}.topbar-inner{gap:6px}.account-button{padding-inline:8px}.account-button span{max-width:55px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}

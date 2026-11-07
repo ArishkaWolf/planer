@@ -3,7 +3,8 @@ import {
   eventTime, interpret, monthDays, months, moveMonth, pad, scheduleFragment, scheduleFromFragment,
   normalizeEvent, shortLabel, sortEvents, stamp, today, weekLabels, weekStart,
 } from './planner.js'
-import {readSync, rememberSync, syncConnection, syncEnabled, validSchedule, writeSync} from './sync.js'
+import {validSchedule} from './sync.js'
+import {accountEnabled, accountKey, accountSession, rememberAccount, readAccount as readSync, signInAccount, signOutAccount, writeAccount as writeSync} from './account.js'
 
 const $ = id => document.getElementById(id)
 const icon = name => '<svg aria-hidden="true"><use href="#i-' + name + '"/></svg>'
@@ -339,6 +340,21 @@ async function setShowFlag(key, id, enabled) {
 }
 
 window.addEventListener('storage', event => {
+  if (event.key === accountKey || event.key === null) {
+    const connection = accountEnabled ? accountSession() : null
+    if (connection?.token !== state.cloud?.connection.token) {
+      connectionAttempt += 1
+      state.cloud = connection ? {connection,revision:-1,canEdit:false,status:'Открываем расписание…'} : null
+      if (state.cloud) {
+        applySchedule({events:[],hiddenShows:[],importantShows:[]})
+        void refreshCloud()
+      }
+      else refreshLocalSchedule()
+      updateAccessUI()
+      renderCalendar()
+      renderTheater()
+    }
+  }
   if (state.cloud || (event.key !== plannerKey && event.key !== scheduleKey && event.key !== hiddenShowsKey && event.key !== null)) return
   refreshLocalSchedule()
   if (!state.shared) {
@@ -350,6 +366,9 @@ window.addEventListener('storage', event => {
 function updateAccessUI() {
   $('sync-banner').hidden = !state.cloud || Boolean(state.shared)
   $('sync-status').textContent = state.cloud?.status || ''
+  $('account-button').hidden = Boolean(state.shared)
+  $('account-label').textContent = state.cloud && !state.cloud.expired ? state.cloud.connection.username : 'Войти'
+  $('account-button').setAttribute('aria-label',state.cloud && !state.cloud.expired ? 'Аккаунт ' + state.cloud.connection.username : 'Войти в аккаунт')
   $('add-event').hidden = isReadOnly()
   document.querySelectorAll('[data-creates-event]').forEach(button => { button.hidden = isReadOnly() })
 }
@@ -359,7 +378,8 @@ function applyCloudSnapshot(cloud, snapshot) {
   const changed = snapshot.revision !== cloud.revision || snapshot.canEdit !== cloud.canEdit
   cloud.revision = snapshot.revision
   cloud.canEdit = snapshot.canEdit
-  cloud.status = snapshot.canEdit ? 'Синхронизация включена' : 'Только просмотр · обновляется автоматически'
+  cloud.expired = false
+  cloud.status = 'Сохранено в аккаунте · ' + snapshot.username
   applySchedule(snapshot.data)
   updateAccessUI()
   return changed
@@ -377,9 +397,11 @@ async function refreshCloud() {
       renderCalendar()
       renderTheater()
     }
-  } catch {
+  } catch (error) {
     if (state.cloud !== cloud || mutating) return
-    cloud.status = 'Нет связи с общим календарём'
+    cloud.expired = error.kind === 'session'
+    if (cloud.expired) cloud.canEdit = false
+    cloud.status = cloud.expired ? 'Нужно войти снова' : 'Нет связи · сохранение временно недоступно'
     updateAccessUI()
   } finally {
     refreshingCloud = false
@@ -387,44 +409,77 @@ async function refreshCloud() {
 }
 
 let connectionAttempt = 0
-async function applyLocation() {
-  const attempt = ++connectionAttempt
-  const fragment = location.hash
-  if (syncEnabled && fragment.startsWith('#sync=')) {
-    const connection = syncConnection(fragment)
+const applyLocation = () => applySharedLink()
+
+function accountDialog(create = false, username = '') {
+  if (state.cloud && !state.cloud.expired) return syncSettings()
+  showDialog(create ? 'Создать аккаунт' : 'Войти в Антракт','ОДНО РАСПИСАНИЕ НА ВСЕХ УСТРОЙСТВАХ',`
+    <p class="dialog-copy">${create ? 'Придумай имя и код из четырёх цифр. Вводи их на каждом устройстве, где хочешь открыть это расписание.' : 'Введи те же имя и код, которые использовал при создании аккаунта.'}</p>
+    <form class="dialog-form" id="account-form">
+      <label>Имя<input name="username" autocomplete="username" minlength="2" maxlength="40" required value="${escape(username || state.cloud?.connection.username || '')}" placeholder="Например, Дмитрий"></label>
+      <label>Код из 4 цифр<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" minlength="4" maxlength="4" autocomplete="${create ? 'new-password' : 'current-password'}" required placeholder="••••"></label>
+      <p class="form-message" role="status">${accountEnabled ? '' : 'Вход появится после подключения общего хранилища. Пока календарём можно пользоваться без входа.'}</p>
+      <button class="button primary" type="submit" ${accountEnabled ? '' : 'disabled'}>${create ? 'Создать аккаунт' : 'Войти'}</button>
+      <button class="text-button account-switch" type="button">${create ? 'Уже есть аккаунт? Войти' : 'Первый раз? Создать аккаунт'}</button>
+    </form>`)
+  const form = $('account-form')
+  form.querySelector('.account-switch').onclick = () => accountDialog(!create,form.elements.namedItem('username').value)
+  form.onsubmit = async event => {
+    event.preventDefault()
+    if (!accountEnabled) return
+    const attempt = ++connectionAttempt
+    const controls = [...form.querySelectorAll('input,button')]
+    controls.forEach(control => { control.disabled = true })
+    const message = form.querySelector('.form-message')
+    message.textContent = 'Открываем расписание…'
     try {
-      if (!connection) throw new Error('Ссылка на общий календарь повреждена.')
-      const snapshot = await readSync(connection)
-      if (attempt !== connectionAttempt || fragment !== location.hash) return
-      const cloud = {connection,revision:-1,canEdit:false,status:''}
-      rememberSync(connection)
-      state.cloud = cloud
-      applyCloudSnapshot(cloud,snapshot)
-      history.replaceState(null,'',location.pathname + location.search)
-    } catch (error) {
+      const result = await signInAccount(form.elements.namedItem('username').value,form.elements.namedItem('pin').value,create)
       if (attempt !== connectionAttempt) return
-      notify(error.message)
+      rememberAccount(result.connection)
+      const cloud = {connection:result.connection,revision:-1,canEdit:false,status:''}
+      state.cloud = cloud
+      applyCloudSnapshot(cloud,result.snapshot)
+      renderCalendar()
+      renderTheater()
+      form.elements.namedItem('pin').value = ''
+      dialog.close()
+      try {
+        const local = readLocalSchedule()
+        if (local.events.length || local.hiddenShows.length || local.importantShows.length) syncSettings()
+        else notify('Расписание открыто')
+      } catch { notify('Расписание открыто') }
+    } catch (error) {
+      if (attempt === connectionAttempt) message.textContent = error.message || 'Не удалось войти. Попробуй ещё раз.'
+    } finally {
+      controls.forEach(control => { control.disabled = false })
     }
   }
-  await applySharedLink()
 }
 
 function syncSettings() {
   if (!state.cloud) return
-  const importButton = state.cloud.canEdit ? '<button class="button primary" type="button" id="sync-import">Перенести записи с этого устройства</button>' : ''
-  showDialog('Общий календарь','СИНХРОНИЗАЦИЯ',`
-    <p class="dialog-copy">${escape(state.cloud.status)}</p><p class="form-message" id="sync-message" role="status"></p>
-    <div class="dialog-actions"><button class="button" type="button" id="sync-disconnect">Отключить на этом устройстве</button>${importButton}</div>`)
-  $('sync-disconnect').onclick = () => {
+  if (state.cloud.expired) return accountDialog()
+  let local
+  try { local = readLocalSchedule() } catch { local = {events:[],hiddenShows:[],importantShows:[]} }
+  const hasLocal = local.events.length || local.hiddenShows.length || local.importantShows.length
+  const importButton = state.cloud.canEdit && hasLocal ? '<button class="button primary" type="button" id="sync-import">Перенести записи с этого устройства</button>' : ''
+  showDialog(state.cloud.connection.username,'ТВОЙ АККАУНТ',`
+    <p class="dialog-copy">На другом устройстве войди с теми же именем и кодом. Изменения появятся автоматически, пока календарь открыт.</p>
+    ${hasLocal ? '<p class="dialog-copy">В этом браузере есть записи, созданные без входа. Их можно добавить в аккаунт.</p>' : ''}
+    <p class="form-message" id="sync-message" role="status"></p>
+    <div class="dialog-actions"><button class="button" type="button" id="sync-disconnect">Выйти на этом устройстве</button>${importButton}</div>`)
+  $('sync-disconnect').onclick = async () => {
     if (mutating) return
     connectionAttempt += 1
-    rememberSync(null)
+    const connection = state.cloud.connection
     state.cloud = null
+    rememberAccount(null)
     refreshLocalSchedule()
     updateAccessUI()
     renderCalendar()
     renderTheater()
     dialog.close()
+    try { await signOutAccount(connection) } catch { /* The local session is already cleared. */ }
   }
   const button = $('sync-import')
   if (button) button.onclick = async () => {
@@ -720,6 +775,7 @@ $('chat-form').addEventListener('submit', event => {
 })
 $('share-button').onclick = () => void shareDialog()
 $('sync-settings').onclick = syncSettings
+$('account-button').onclick = () => accountDialog()
 $('my-calendar').onclick = () => {
   history.replaceState(null,'',location.pathname + location.search)
   void applySharedLink()
@@ -772,8 +828,8 @@ document.addEventListener('click', event => {
 const now = today()
 $('today-number').textContent = pad(now.getDate())
 $('today-month').textContent = months[now.getMonth()].toLocaleLowerCase('ru-RU')
-if (syncEnabled) {
-  const connection = syncConnection()
+if (accountEnabled) {
+  const connection = accountSession()
   if (connection) state.cloud = {connection,revision:-1,canEdit:false,status:'Подключаем общий календарь…'}
   setInterval(() => void refreshCloud(),15000)
   document.addEventListener('visibilitychange',() => void refreshCloud())
