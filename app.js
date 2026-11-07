@@ -283,6 +283,7 @@ function refreshLocalSchedule() {
   try {
     applySchedule(readLocalSchedule())
   } catch {
+    applySchedule({events:[],hiddenShows:[],importantShows:[]})
     notify('Не удалось прочитать события в этом браузере.')
   }
 }
