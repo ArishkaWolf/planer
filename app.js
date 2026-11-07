@@ -233,16 +233,37 @@ function shift(direction) {
   renderCalendar()
 }
 
+function fitDialogViewport() {
+  if (!dialog.open) return
+  const viewport = window.visualViewport
+  const top = viewport?.offsetTop ?? 0
+  const height = viewport?.height ?? window.innerHeight
+  dialog.style.setProperty('--dialog-viewport-top',`${top}px`)
+  dialog.style.setProperty('--dialog-viewport-height',`${height}px`)
+  dialog.style.setProperty('--dialog-viewport-bottom',`${Math.max(0,window.innerHeight - top - height)}px`)
+}
+
+window.visualViewport?.addEventListener('resize',fitDialogViewport)
+window.visualViewport?.addEventListener('scroll',fitDialogViewport)
+window.addEventListener('resize',fitDialogViewport)
+
 function showDialog(title, label, content) {
   $('modal-content').innerHTML = `<div class="dialog-inner"><div class="dialog-heading"><div><p class="eyebrow">${label}</p><h2 id="dialog-title">${escape(title)}</h2></div><button class="icon-button" type="button" data-close aria-label="Закрыть">${icon('close')}</button></div>${content}</div>`
   if (!dialog.open) {
     previousFocus = document.activeElement
+    document.documentElement.classList.add('has-modal')
+    document.body.classList.add('has-modal')
     dialog.showModal()
   }
+  dialog.scrollTop = 0
+  fitDialogViewport()
 }
 
 dialog.addEventListener('close', () => {
-  if (!dialog.open && previousFocus?.isConnected) previousFocus.focus({preventScroll:true})
+  if (dialog.open) return
+  document.documentElement.classList.remove('has-modal')
+  document.body.classList.remove('has-modal')
+  if (previousFocus?.isConnected) previousFocus.focus({preventScroll:true})
 })
 dialog.addEventListener('click', event => {
   if (event.target === dialog) dialog.close()
@@ -579,8 +600,8 @@ function editor(event = null) {
   showDialog(event ? 'Редактировать событие' : 'Новое событие','КАЛЕНДАРЬ',`
     <form class="dialog-form" id="event-form">
       <label>Название<input name="title" required maxlength="250" placeholder="Например, репетиция" value="${escape(event?.title || '')}"></label>
-      <div class="fields"><label>Дата<input name="date" type="date" min="1900-01-01" max="2199-12-31" required value="${event?.date || stamp(state.date)}"></label><label>Категория<select name="type">${options}</select></label></div>
-      <div class="fields"><label>Начало<input name="time" type="time" value="${event?.time || ''}"></label><label>Окончание<input name="endTime" type="time" value="${event?.endTime || ''}"></label></div>
+      <div class="fields event-details"><label>Дата<span class="native-field date-field"><input name="date" type="date" min="1900-01-01" max="2199-12-31" required value="${event?.date || stamp(state.date)}"></span></label><label>Категория<select name="type">${options}</select></label></div>
+      <div class="fields"><label>Начало<span class="native-field"><input name="time" type="time" value="${event?.time || ''}"></span></label><label>Окончание<span class="native-field"><input name="endTime" type="time" value="${event?.endTime || ''}"></span></label></div>
       <label class="important-control"><input name="important" type="checkbox" ${event?.important ? 'checked' : ''}><span>Важное событие</span></label>
       <p class="form-message" role="status"></p>
       <div class="dialog-actions">${event ? '<button type="button" class="button" id="remove-event">Удалить событие</button>' : ''}<button class="button primary" type="submit">Сохранить</button></div>
@@ -657,7 +678,17 @@ function openEvent(id) {
   const actions = isReadOnly() ? '' : `
     <button class="button" id="show-important" type="button">${important ? 'Снять отметку «Важное»' : 'Отметить важным'}</button>
     <button class="button" id="show-visibility" type="button">${hidden ? 'Вернуть в календарь' : 'Убрать из календаря'}</button>`
-  showDialog(show.title,'ИЗ АФИШИ ТЕАТРА',`<p class="dialog-copy">${dayLabel(dateOf(show.date))} · ${escape(show.time)} (МСК)</p><p id="show-message" class="form-message" role="status"></p><div class="dialog-actions">${actions}<button class="button" type="button" data-jump="${show.date}">К дате</button><a class="button primary" href="${escape(show.url)}" target="_blank" rel="noopener noreferrer">На сайте театра ↗</a></div>`)
+  showDialog(show.title,'ИЗ АФИШИ ТЕАТРА',`
+    <div class="show-details">
+      <p>${icon('calendar')}<span>${dayLabel(dateOf(show.date))}</span></p>
+      <p>${icon('clock')}<span>${escape(show.time)} · МСК</span></p>
+    </div>
+    <p id="show-message" class="form-message" role="status"></p>
+    <div class="dialog-actions show-actions">
+      <a class="button primary" href="${escape(show.url)}" target="_blank" rel="noopener noreferrer">На сайте театра ${icon('arrow')}</a>
+      <button class="button" type="button" data-jump="${show.date}">Показать в календаре</button>
+      ${actions}
+    </div>`)
   const bind = (button, key, enabled, confirmation) => {
     if (!button) return
     const message = $('show-message')
