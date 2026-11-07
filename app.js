@@ -1,10 +1,10 @@
 import {
   addDays, categories, categoryOf, countLabel, dateLabel, dateOf, dayLabel, firstOfMonth,
   eventTime, interpret, monthDays, months, moveMonth, pad, scheduleFragment, scheduleFromFragment,
-  normalizeEvent, shortLabel, sortEvents, stamp, today, weekLabels, weekStart,
+  dayHighlights, normalizeEvent, shortLabel, sortEvents, stamp, today, weekLabels, weekStart,
 } from './planner.js'
 import {validSchedule} from './sync.js'
-import {accountEnabled, accountKey, accountSession, rememberAccount, readAccount as readSync, signInAccount, signOutAccount, writeAccount as writeSync} from './account.js'
+import {accountEnabled, accountKey, accountSession, canEditAccount, rememberAccount, readAccount as readSync, signInAccount, signOutAccount, writeAccount as writeSync} from './account.js'
 
 const $ = id => document.getElementById(id)
 const icon = name => '<svg aria-hidden="true"><use href="#i-' + name + '"/></svg>'
@@ -89,7 +89,10 @@ function renderCalendar(restoreFocus = false) {
   const monthStart = weekStart(first)
   const map = byDay()
   const allDays = byDay(false)
-  const dayFlags = events => [events.some(event => event.type === 'filming') ? 'filming-day' : '', events.some(event => event.important) ? 'important-day' : ''].join(' ')
+  const dayFlags = events => {
+    const {filming,important} = dayHighlights(events)
+    return [filming ? 'filming-day' : '', important ? 'important-day' : ''].join(' ')
+  }
   const month = months[date.getMonth()]
   let label = month + ' ' + date.getFullYear()
   let contents
@@ -120,8 +123,7 @@ function renderCalendar(restoreFocus = false) {
       const events = map.get(key) || []
       const outside = !isWeek && day.getMonth() !== date.getMonth()
       const completeDay = allDays.get(key) || []
-      const filming = completeDay.some(event => event.type === 'filming')
-      const important = completeDay.some(event => event.important)
+      const {filming,important} = dayHighlights(completeDay)
       const flags = [outside ? 'outside' : '', key === current ? 'current' : '', key === selected ? 'selected' : '', filming ? 'filming-day' : '', important ? 'important-day' : ''].join(' ')
       const ordered = [...events].sort((a,b) => cellPriority[eventTone(a)] - cellPriority[eventTone(b)])
       const dots = ordered.map(event => `<i class="dot ${eventTone(event)}${event.important ? ' important' : ''}"></i>`).join('')
@@ -289,27 +291,18 @@ function refreshLocalSchedule() {
 }
 
 function isReadOnly() {
-  return Boolean(state.shared || (state.cloud && !state.cloud.canEdit))
+  return Boolean(state.shared) || !canEditAccount(state.cloud)
 }
 
 async function updatePlanner(change) {
-  if (isReadOnly()) throw new Error('Расписание доступно для просмотра.')
+  if (state.shared) throw new Error('Расписание доступно для просмотра.')
+  if (!canEditAccount(state.cloud)) throw new Error('Войди в аккаунт, чтобы изменять расписание.')
   if (mutating) throw new Error('Дождись окончания сохранения и попробуй ещё раз.')
   mutating = true
   try {
     const cloud = state.cloud
-    if (cloud) {
-      const snapshot = await writeSync(cloud.connection,change)
-      if (state.cloud === cloud) applyCloudSnapshot(cloud,snapshot)
-      return
-    }
-    const save = () => {
-      const updated = change(readLocalSchedule())
-      localStorage.setItem(plannerKey, JSON.stringify(updated))
-      applySchedule(updated)
-    }
-    if (navigator.locks) await navigator.locks.request(plannerKey, save)
-    else save()
+    const snapshot = await writeSync(cloud.connection,change)
+    if (state.cloud === cloud) applyCloudSnapshot(cloud,snapshot)
   } finally {
     mutating = false
   }
@@ -371,6 +364,7 @@ function updateAccessUI() {
   $('account-label').textContent = state.cloud && !state.cloud.expired ? state.cloud.connection.username : 'Войти'
   $('account-button').setAttribute('aria-label',state.cloud && !state.cloud.expired ? 'Аккаунт ' + state.cloud.connection.username : 'Войти в аккаунт')
   $('add-event').hidden = isReadOnly()
+  $('calendar-access-hint').hidden = Boolean(state.shared) || !isReadOnly() || Boolean(state.cloud && !state.cloud.expired && state.cloud.revision < 0)
   document.querySelectorAll('[data-creates-event]').forEach(button => { button.hidden = isReadOnly() })
 }
 
@@ -419,7 +413,7 @@ function accountDialog(create = false, username = '') {
     <form class="dialog-form" id="account-form">
       <label>Имя<input name="username" autocomplete="username" minlength="2" maxlength="40" required value="${escape(username || state.cloud?.connection.username || '')}" placeholder="Например, Дмитрий"></label>
       <label>Код из 4 цифр<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" minlength="4" maxlength="4" autocomplete="${create ? 'new-password' : 'current-password'}" required placeholder="••••"></label>
-      <p class="form-message" role="status">${accountEnabled ? '' : 'Вход появится после подключения общего хранилища. Пока календарём можно пользоваться без входа.'}</p>
+      <p class="form-message" role="status">${accountEnabled ? '' : 'Вход пока недоступен. Можно просматривать календарь и афишу.'}</p>
       <button class="button primary" type="submit" ${accountEnabled ? '' : 'disabled'}>${create ? 'Создать аккаунт' : 'Войти'}</button>
       <button class="text-button account-switch" type="button">${create ? 'Уже есть аккаунт? Войти' : 'Первый раз? Создать аккаунт'}</button>
     </form>`)
@@ -463,7 +457,7 @@ function syncSettings() {
   let local
   try { local = readLocalSchedule() } catch { local = {events:[],hiddenShows:[],importantShows:[]} }
   const hasLocal = local.events.length || local.hiddenShows.length || local.importantShows.length
-  const importButton = state.cloud.canEdit && hasLocal ? '<button class="button primary" type="button" id="sync-import">Перенести записи с этого устройства</button>' : ''
+  const importButton = !isReadOnly() && hasLocal ? '<button class="button primary" type="button" id="sync-import">Перенести записи с этого устройства</button>' : ''
   showDialog(state.cloud.connection.username,'ТВОЙ АККАУНТ',`
     <p class="dialog-copy">На другом устройстве войди с теми же именем и кодом. Изменения появятся автоматически, пока календарь открыт.</p>
     ${hasLocal ? '<p class="dialog-copy">В этом браузере есть записи, созданные без входа. Их можно добавить в аккаунт.</p>' : ''}
@@ -576,7 +570,10 @@ async function applySharedLink() {
 }
 
 function editor(event = null) {
-  if (isReadOnly()) return
+  if (isReadOnly()) {
+    if (!state.shared) accountDialog()
+    return
+  }
   if (event) event = normalizeEvent(event)
   const options = Object.entries(categories).map(([key,value]) => `<option value="${key}" ${(event?.type || 'personal') === key ? 'selected' : ''}>${value.label}</option>`).join('')
   showDialog(event ? 'Редактировать событие' : 'Новое событие','КАЛЕНДАРЬ',`
@@ -754,7 +751,15 @@ async function send(text) {
     const result = interpret(text,calendarEvents(),today(),state.feed,state.date)
     if (result.event || result.events) {
       if (isReadOnly()) {
-        chatMessage('bot','Это копия для просмотра. Чтобы добавить событие, открой свой календарь.')
+        const row = chatMessage('bot',state.shared ? 'Это копия для просмотра. Чтобы добавить событие, открой свой календарь.' : 'Чтобы добавить событие, войди в аккаунт.')
+        if (!state.shared) {
+          const login = document.createElement('button')
+          login.type = 'button'
+          login.className = 'text-button'
+          login.textContent = 'Войти в аккаунт'
+          login.setAttribute('data-account-login','')
+          row.append(login)
+        }
       } else if (result.confirm) confirmChatEvent(result)
       else await saveChatEvent(result)
       return
@@ -792,6 +797,7 @@ document.addEventListener('click', event => {
   const button = event.target.closest('button')
   if (!button) return
   const {panel,view,filter,day,month,prompt,event:id,jump:date} = button.dataset
+  if (button.hasAttribute('data-account-login')) accountDialog()
   if (button.hasAttribute('data-close')) dialog.close()
   if (panel === 'theater') theaterDialog()
   else if (panel) setPanel(panel)

@@ -182,6 +182,13 @@ export function normalizeEvent(event) {
   return event.type === 'personal' && filmingTitle ? {...event,type:'filming'} : event
 }
 
+export function dayHighlights(events) {
+  return {
+    filming:events.some(event => normalizeEvent(event).type === 'filming'),
+    important:events.some(event => event.important === true),
+  }
+}
+
 function questionRange(phrase, date, base) {
   if (date) return [stamp(date), stamp(date)]
   if (/следующ[а-я]* (недел|месяц)|будущей недел/u.test(phrase)) {

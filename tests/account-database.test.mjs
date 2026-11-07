@@ -33,6 +33,8 @@ test('PostgreSQL account access, concurrent sessions, validation and attempt lim
     assert.deepEqual(await write(second.token,0,data),{conflict:true})
     assert.deepEqual(await read('f'.repeat(64)),{error:'session'})
     assert.deepEqual(await write('f'.repeat(64),0,data),{error:'session'})
+    assert.deepEqual(await write('',0,data),{error:'session'})
+    assert.deepEqual(await write(null,0,data),{error:'session'})
     const other = await sign('Другой актёр','1357',true)
     assert.equal((await read(other.token)).data.events.length,0)
     for (const invalid of [
@@ -43,6 +45,7 @@ test('PostgreSQL account access, concurrent sessions, validation and attempt lim
     assert.equal((await read(first.token)).revision,1)
     await call('antrakt_account_sign_out',[first.token])
     assert.deepEqual(await read(first.token),{error:'session'})
+    assert.deepEqual(await write(first.token,1,data),{error:'session'})
     assert.equal((await read(second.token)).revision,1)
     for (let index=0;index<5;index++) assert.deepEqual(await sign('Тестовый актёр','0000'),{error:'credentials'})
     assert.deepEqual(await sign('Тестовый актёр','2468'),{error:'limited'})

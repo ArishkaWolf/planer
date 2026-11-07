@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {categoryOf, dateOf, interpret, isCalendarEvent, normalizeEvent, scheduleFragment, scheduleFromFragment} from '../planner.js'
+import {categoryOf, dateOf, dayHighlights, interpret, isCalendarEvent, normalizeEvent, scheduleFragment, scheduleFromFragment} from '../planner.js'
 
 const base = dateOf('2026-11-07')
 const read = text => interpret(text,[],base,{months:['2026-11']},base)
@@ -58,6 +58,19 @@ test('legacy personal filming becomes filming without changing its identity or t
   assert.equal(normalizeEvent(personal),personal)
   const discussion = {...old,title:'Встреча по поводу съёмки'}
   assert.equal(normalizeEvent(discussion),discussion)
+})
+
+test('filming highlights survive multiple events, importance and legacy event categories',()=>{
+  const filming = {type:'filming',title:'Съёмка'}
+  const legacy = {type:'personal',title:'Сьемка'}
+  const show = {type:'show',title:'Спектакль'}
+  const important = {type:'teahouse',title:'Чайхана',important:true}
+  for (const events of [[filming,show],[show,filming],[legacy,show],[show,legacy],[important,show,filming]]) {
+    assert.equal(dayHighlights(events).filming,true)
+  }
+  assert.deepEqual(dayHighlights([important,show,filming]),{filming:true,important:true})
+  assert.deepEqual(dayHighlights([show]),{filming:false,important:false})
+  assert.deepEqual(dayHighlights([]),{filming:false,important:false})
 })
 
 test('date lists share the same interval',()=>{

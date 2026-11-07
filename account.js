@@ -6,6 +6,12 @@ export const accountKey = 'antrakt:account:v1'
 const tokenPattern = /^[a-f0-9]{64}$/
 const namePattern = /^[\p{L}\p{N} _.-]{2,40}$/u
 
+export function canEditAccount(cloud) {
+  return Boolean(cloud?.canEdit === true && !cloud.expired
+    && tokenPattern.test(cloud.connection?.token)
+    && Date.parse(cloud.connection?.expiresAt) > Date.now())
+}
+
 export function accountSession() {
   try {
     const value = JSON.parse(localStorage.getItem(accountKey) || 'null')

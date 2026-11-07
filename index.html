@@ -79,8 +79,9 @@
       <section id="calendar-panel" class="card calendar-card" aria-labelledby="calendar-heading">
         <header class="section-heading">
           <div><p class="eyebrow">01 / РАСПИСАНИЕ</p><h2 id="calendar-heading">Календарь</h2></div>
-          <button class="button primary" id="add-event" type="button"><svg><use href="#i-plus"/></svg><span>Событие</span></button>
+          <button class="button primary" id="add-event" type="button" hidden><svg><use href="#i-plus"/></svg><span>Событие</span></button>
         </header>
+        <p id="calendar-access-hint" class="calendar-access-hint" hidden>Добавление событий доступно после входа. <button class="text-button" type="button" data-account-login>Войти</button></p>
         <div class="calendar-toolbar">
           <div class="date-controls">
             <button class="icon-button" id="prev" type="button" aria-label="Предыдущий период"><svg><use href="#i-left"/></svg></button>

@@ -46,6 +46,19 @@ test('invalid names and codes never reach the server',async()=>{
   assert.equal(calls.length,0)
 })
 
+test('only a confirmed, unexpired account session can edit the schedule',()=>{
+  const signedIn = {connection,canEdit:true,expired:false}
+  assert.equal(account.canEditAccount(signedIn),true)
+  for (const cloud of [null,undefined,{},
+    {...signedIn,canEdit:false},
+    {...signedIn,canEdit:undefined},
+    {...signedIn,expired:true},
+    {...signedIn,connection:{...connection,token:'invalid'}},
+    {...signedIn,connection:{...connection,expiresAt:'2000-01-01T00:00:00Z'}},
+    {...signedIn,connection:{...connection,expiresAt:'invalid'}},
+  ]) assert.equal(account.canEditAccount(cloud),false)
+})
+
 test('browser remembers a random session without retaining the code or schedule',()=>{
   account.rememberAccount({...connection,pin:'0123',data:empty})
   assert.deepEqual(account.accountSession(),connection)
