@@ -1,7 +1,7 @@
 import {
   addDays, categories, categoryOf, countLabel, dateLabel, dateOf, dayLabel, firstOfMonth,
   eventTime, interpret, monthDays, months, moveMonth, pad, scheduleFragment, scheduleFromFragment,
-  shortLabel, sortEvents, stamp, today, weekLabels, weekStart,
+  normalizeEvent, shortLabel, sortEvents, stamp, today, weekLabels, weekStart,
 } from './planner.js'
 import {readSync, rememberSync, syncConnection, syncEnabled, validSchedule, writeSync} from './sync.js'
 
@@ -27,18 +27,18 @@ function visibleShows() {
 }
 
 function calendarEvents() {
-  return [...(state.shared?.events ?? state.personal), ...visibleShows()]
+  return [...(state.shared?.events ?? state.personal).map(normalizeEvent), ...visibleShows()]
 }
 
 function isMyShow(event) {
   return event.type === 'show' && event.source === 'theater' && event.myShow === true
 }
 
-function byDay() {
+function byDay(applyFilters = true) {
   const map = new Map()
   const {filters} = state
   for (const event of sortEvents(calendarEvents())) {
-    const matches = !filters.size || filters.has(event.type) || (filters.has('mine') && isMyShow(event))
+    const matches = !applyFilters || !filters.size || filters.has(event.type) || (filters.has('mine') && isMyShow(event))
     if (!matches) continue
     if (!map.has(event.date)) map.set(event.date, [])
     map.get(event.date).push(event)
@@ -87,6 +87,8 @@ function renderCalendar(restoreFocus = false) {
   const first = firstOfMonth(date)
   const monthStart = weekStart(first)
   const map = byDay()
+  const allDays = byDay(false)
+  const dayFlags = events => [events.some(event => event.type === 'filming') ? 'filming-day' : '', events.some(event => event.important) ? 'important-day' : ''].join(' ')
   const month = months[date.getMonth()]
   let label = month + ' ' + date.getFullYear()
   let contents
@@ -104,7 +106,7 @@ function renderCalendar(restoreFocus = false) {
     }).join('') + '</div>'
   } else if (state.view === 'day') {
     label = shortLabel(date) + ' ' + date.getFullYear()
-    contents = `<div class="day-banner"><strong>${pad(date.getDate())}</strong><span>${dayLabel(date)}</span></div>` + dayTimeline(map.get(selected) || [])
+    contents = `<div class="day-banner ${dayFlags(allDays.get(selected) || [])}"><strong>${pad(date.getDate())}</strong><span>${dayLabel(date)}</span></div>` + dayTimeline(map.get(selected) || [])
   } else {
     const isWeek = state.view === 'week'
     const start = isWeek ? weekStart(date) : monthStart
@@ -116,8 +118,9 @@ function renderCalendar(restoreFocus = false) {
       const key = stamp(day)
       const events = map.get(key) || []
       const outside = !isWeek && day.getMonth() !== date.getMonth()
-      const filming = events.some(event => event.type === 'filming')
-      const important = events.some(event => event.important)
+      const completeDay = allDays.get(key) || []
+      const filming = completeDay.some(event => event.type === 'filming')
+      const important = completeDay.some(event => event.important)
       const flags = [outside ? 'outside' : '', key === current ? 'current' : '', key === selected ? 'selected' : '', filming ? 'filming-day' : '', important ? 'important-day' : ''].join(' ')
       const ordered = [...events].sort((a,b) => cellPriority[eventTone(a)] - cellPriority[eventTone(b)])
       const dots = ordered.map(event => `<i class="dot ${eventTone(event)}${event.important ? ' important' : ''}"></i>`).join('')
@@ -265,7 +268,7 @@ function readLocalSchedule() {
     importantShows:[],
   }
   if (!validSchedule(data)) throw new Error('Не удалось прочитать события в этом браузере.')
-  return data
+  return {...data,events:data.events.map(normalizeEvent)}
 }
 
 function applySchedule(data) {
@@ -518,6 +521,7 @@ async function applySharedLink() {
 
 function editor(event = null) {
   if (isReadOnly()) return
+  if (event) event = normalizeEvent(event)
   const options = Object.entries(categories).map(([key,value]) => `<option value="${key}" ${(event?.type || 'personal') === key ? 'selected' : ''}>${value.label}</option>`).join('')
   showDialog(event ? 'Редактировать событие' : 'Новое событие','КАЛЕНДАРЬ',`
     <form class="dialog-form" id="event-form">
@@ -529,6 +533,12 @@ function editor(event = null) {
       <div class="dialog-actions">${event ? '<button type="button" class="button" id="remove-event">Удалить событие</button>' : ''}<button class="button primary" type="submit">Сохранить</button></div>
     </form>`)
   const form = $('event-form')
+  let categoryChosen = Boolean(event)
+  const category = form.elements.namedItem('type')
+  category.addEventListener('change', () => { categoryChosen = true })
+  form.elements.namedItem('title').addEventListener('input', input => {
+    if (!categoryChosen) category.value = categoryOf(input.target.value)
+  })
   const save = async remove => {
     if (mutating) return
     const fields = new FormData(form)
@@ -655,13 +665,14 @@ async function saveChatEvent({event, events:batch, reply, date}) {
 }
 
 function confirmChatEvent(result) {
-  const {event} = result
-  const date = dateOf(event.date)
-  const row = chatMessage('bot','Сохранить «' + event.title + '» на ' + dateLabel(date) + ', ' + eventTime(event) + '?')
+  const events = result.events || [result.event]
+  const date = dateOf(events[0].date)
+  const descriptions = events.map(event => '«' + event.title + '» · ' + dateLabel(dateOf(event.date)) + (event.time ? ' · ' + eventTime(event) : '') + (event.important ? ' · Важно' : ''))
+  const row = chatMessage('bot','Проверь дату перед сохранением:\n' + descriptions.join('\n'))
   const button = document.createElement('button')
   button.type = 'button'
   button.className = 'text-button'
-  button.textContent = 'Сохранить на ' + shortLabel(date)
+  button.textContent = events.length > 1 ? 'Сохранить ' + countLabel(events.length) : 'Сохранить на ' + shortLabel(date)
   row.append(button)
   $('chat-log').scrollTop = $('chat-log').scrollHeight
   button.onclick = async () => {

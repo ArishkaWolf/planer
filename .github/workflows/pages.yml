@@ -34,6 +34,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: actions/configure-pages@v5
+      - name: Test planner input
+        run: node --test tests/planner.test.mjs
       - uses: actions/cache/restore@v4
         with:
           path: .afisha-cache

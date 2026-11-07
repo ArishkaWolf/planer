@@ -7,8 +7,8 @@ export const categories = {
   personal: {label: 'Личное', icon: 'calendar'},
 }
 
-const eventAliases = {репа:'репетиция', чх:'чайхана', спект:'спектакль'}
-const expandEventAliases = text => text.replace(/(?<![\p{L}\p{N}])(репа|чх|спект)\.?(?![\p{L}\p{N}])/giu, (_, alias) => eventAliases[alias.toLowerCase()])
+const eventAliases = {репа:'репетиция', реп:'репетиция', чх:'чайхана', спект:'спектакль', съем:'съёмка', съём:'съёмка', сьем:'съёмка'}
+const expandEventAliases = text => text.replace(/(?<![\p{L}\p{N}])(репа|реп|чх|спект|съем|съём|сьем)\.?(?![\p{L}\p{N}])/giu, (_, alias) => eventAliases[alias.toLowerCase()])
 
 export const months = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
 const monthCases = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
@@ -121,9 +121,16 @@ function exactDate(year, month, day) {
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null
 }
 
-function parseDate(text, base) {
+const weekdayWords = ['понедельник|пн', 'вторник|вт', 'среда|среду|ср', 'четверг|чт', 'пятница|пятницу|пт', 'суббота|субботу|сб', 'воскресенье|вс']
+
+function parseDate(text, base, selectedDate = base) {
   const relative = /(?<![а-я])(?:послезавтра|завтра|сегодня)(?![а-я])/u.exec(text)
   if (relative) return {date:addDays(base, {сегодня:0, завтра:1, послезавтра:2}[relative[0]]), match:relative}
+  const after = /(?<![а-я])через\s+(?:(\d{1,3}|один|два|три|одну)\s+)?(день|дня|дней|неделю|недели|недель)(?![а-я])/u.exec(text)
+  if (after) {
+    const count = after[1] ? Number(after[1]) || {один:1,одну:1,два:2,три:3}[after[1]] : 1
+    return {date:count <= 365 ? addDays(base,count * (after[2].startsWith('недел') ? 7 : 1)) : null,match:after}
+  }
 
   const iso = /(?<!\d)(\d{4})-(\d{2})-(\d{2})(?!\d)/u.exec(text)
   if (iso) return {date:exactDate(+iso[1], +iso[2], +iso[3]), match:iso}
@@ -131,7 +138,18 @@ function parseDate(text, base) {
   const numeric = /(?<![\d.:])(\d{1,2})[./](\d{1,2})(?:[./](\d{2}|\d{4}))?(?![\d:])/u.exec(text)
   const named = new RegExp('(?<![\\d:])(\\d{1,2})\\s+(' + monthWord + ')(?![а-я])(?:\\s+(\\d{4})(?![\\d:]))?', 'u').exec(text)
   const match = named || numeric
-  if (!match) return null
+  if (!match) {
+    const weekday = new RegExp('(?<![а-я])(?:(?:в|во)\\s+)?(?:(?:этот|эту|ближайший|ближайшую|следующий|следующую)\\s+)?(' + weekdayWords.join('|') + ')(?![а-я])', 'u').exec(text)
+    if (weekday) {
+      const index = weekdayWords.findIndex(words => new RegExp('^(?:' + words + ')$','u').test(weekday[1]))
+      let offset = (index - (base.getDay() + 6) % 7 + 7) % 7
+      if (/следующ/u.test(weekday[0])) offset = 7 + index - (base.getDay() + 6) % 7
+      return {date:addDays(base,offset),match:weekday}
+    }
+    const bare = /(?<![\dа-я.:/\-])(?:(?:на|в)\s+)?(\d{1,2})(?:\s*-?(?:го|е|ого))?(?![\dа-я.:/\-])/u.exec(text)
+    if (bare) return {date:exactDate(selectedDate.getFullYear(),selectedDate.getMonth() + 1,+bare[1]),match:bare,implicit:true}
+    return null
+  }
 
   const day = +match[1]
   const month = named ? (monthCases.indexOf(match[2]) + 1 || months.findIndex(value => value.toLowerCase() === match[2]) + 1) : +match[2]
@@ -157,6 +175,13 @@ export function categoryOf(text) {
   return 'personal'
 }
 
+// Early versions defaulted every event in the form to "personal".
+export function normalizeEvent(event) {
+  const title = expandEventAliases(event.title).toLowerCase().replaceAll('ё','е').trim()
+  const filmingTitle = /^(?:важн(?:ая|ое)\s+)?(?:с[ъь]?емк[аи]|съемочный\s+день|кастинг|кинопробы)(?![а-я])/u.test(title)
+  return event.type === 'personal' && filmingTitle ? {...event,type:'filming'} : event
+}
+
 function questionRange(phrase, date, base) {
   if (date) return [stamp(date), stamp(date)]
   if (/следующ[а-я]* (недел|месяц)|будущей недел/u.test(phrase)) {
@@ -177,8 +202,30 @@ function questionRange(phrase, date, base) {
 }
 
 function parseTimeRange(text) {
-  return /(?<![а-я\d])с\s+(\d{1,2})(?:[:.](\d{2}))?\s+(?:до|по)\s+(\d{1,2})(?:[:.](\d{2}))?(?![\d:.])/iu.exec(text)
-    || /(?<![\d.])(\d{1,2})[:.](\d{2})\s*[-–—]\s*(\d{1,2})[:.](\d{2})(?![\d:.])/u.exec(text)
+  return /(?<![а-я\d])(?:с\s*)?(\d{1,2})(?:[:.](\d{2}))?\s*(?:до|по|[-–—])\s*(\d{1,2})(?:[:.](\d{2}))?(?:\s*(?:часов|часа|ч)(?![а-я]))?(?![\d:.])/iu.exec(text)
+}
+
+function parseSingleTime(text) {
+  const match = /(?<![а-я\d])(?:в|с)\s*(\d{1,2})(?:[:.](\d{2}))?(?:\s*(?:час(?:а|ов)?|ч)(?![а-я]))?(?:\s*(утра|дня|вечера|ночи))?(?![а-я\d.:])|(?<![\d.:/])(\d{1,2}):(\d{2})(?:\s*(утра|дня|вечера|ночи))?(?![\d:])/iu.exec(text)
+  if (!match) return null
+  let hour = +(match[1] || match[4])
+  const minute = +(match[2] || match[5] || 0)
+  const period = (match[3] || match[6] || '').toLowerCase()
+  if (hour > 23 || minute > 59 || (period && (hour < 1 || hour > 12))) return {match,error:true}
+  if ((period === 'вечера' || period === 'дня') && hour < 12) hour += 12
+  if (period === 'ночи' && hour === 12) hour = 0
+  return {match,time:pad(hour) + ':' + pad(minute)}
+}
+
+function parseDayRange(text, base, selectedDate) {
+  const match = new RegExp('(?<![а-я\\d])(?:с\\s*)?(\\d{1,2})\\s*(?:по|[-–—])\\s*(\\d{1,2})\\s+(' + monthWord + ')(?![а-я])(?:\\s+(\\d{4})(?![\\d:]))?', 'u').exec(text)
+  if (!match) return null
+  const month = parseDate(match[1] + ' ' + match[3] + (match[4] ? ' ' + match[4] : ''),base,selectedDate)?.date
+  const from = +match[1]
+  const to = +match[2]
+  const dates = month && from <= to && to - from < 31
+    ? Array.from({length:to-from+1},(_,offset)=>exactDate(month.getFullYear(),month.getMonth()+1,from+offset)) : [null]
+  return {dates,index:match.index,length:match[0].length}
 }
 
 function parseDayList(text, base, selectedDate) {
@@ -192,17 +239,42 @@ function parseDayList(text, base, selectedDate) {
 }
 
 export function interpret(text, events, base = today(), feed = {months:[]}, selectedDate = base) {
+  text = text.trim().replaceAll('\u00a0',' ')
   const phrase = text.toLowerCase().replaceAll('ё','е')
   const query = /^(?:а\s+)?(?:когда|что|какие|какой|есть ли|сколько|найди|покажи|будет ли|свобод[а-я]* ли|могу ли)(?![а-я])/u.test(phrase) || /\?$/.test(phrase)
-  const range = query ? null : parseTimeRange(phrase)
-  if (range && new RegExp('^\\s+(?:' + monthWord + ')(?![а-я])', 'u').test(phrase.slice(range.index + range[0].length))) {
-    return {reply:'Укажи одну дату и время начала и окончания. Например, «Репетиция 18 ноября с 10 до 18».'}
+  if (!query && new RegExp('(?<![а-я\\d])с\\s*\\d{1,2}(?:[:.]\\d{2})?\\s*до\\s*\\d{1,2}\\s+(?:' + monthWord + ')(?![а-я])','u').test(phrase)) {
+    return {reply:'Уточни дату и время отдельно. Например, «Репетиция 18 ноября с 10 до 18». Для нескольких дат напиши «Съёмка с 10 по 18 ноября».'}
   }
+  const parts = query ? [] : text.split(/\s*[;\n]+\s*|\s+и\s+(?=(?:репа|репетици[яю]|с[ъь]?[её]мк[аи]|спектакль|спект|чх|чайхана|концерт)(?![а-я]))/iu).filter(Boolean)
+  if (parts.length > 1) {
+    if (parts.length > 20) return {reply:'Отправь до 20 событий за раз, каждое с новой строки или через точку с запятой.'}
+    const added = []
+    let context = selectedDate
+    let confirm = false
+    for (const part of parts) {
+      const result = interpret(part,events,base,feed,context)
+      if (!result.event && !result.events) return {reply:'Пока ничего не добавлено. Уточни «' + part + '». ' + result.reply}
+      added.push(...(result.events || [result.event]))
+      context = dateOf(result.date)
+      confirm ||= result.confirm === true
+    }
+    return {events:added,date:added[0].date,confirm,reply:added.map(event=>'«' + event.title + '» · ' + dateLabel(dateOf(event.date)) + (event.time ? ' · ' + eventTime(event) : '')).join('\n')}
+  }
+  const dayRange = query ? null : parseDayRange(phrase,base,selectedDate)
+  // Mask dates before looking for a time, including numeric dates such as 10.11.
+  const earlyTime = query || dayRange ? null : parseSingleTime(text)
+  const maskedTime = earlyTime ? phrase.slice(0,earlyTime.match.index) + ' '.repeat(earlyTime.match[0].length) + phrase.slice(earlyTime.match.index+earlyTime.match[0].length) : phrase
+  const knownDate = dayRange ? null : parseDate(maskedTime,base,selectedDate)
+  const dateMask = dayRange || (knownDate && !knownDate.implicit ? {index:knownDate.match.index,length:knownDate.match[0].length} : null)
+  const timeText = dateMask ? text.slice(0,dateMask.index) + ' '.repeat(dateMask.length) + text.slice(dateMask.index+dateMask.length) : text
+  const range = query ? null : parseTimeRange(timeText)
   const withoutRange = range ? text.slice(0, range.index) + ' '.repeat(range[0].length) + text.slice(range.index + range[0].length) : text
   const normalized = withoutRange.toLowerCase().replaceAll('ё','е')
-  const batch = query ? null : parseDayList(normalized,base,selectedDate)
+  const batch = query ? null : dayRange || parseDayList(normalized,base,selectedDate)
   if (batch?.dates.some(date => !date)) return {reply:'Проверь числа. Все даты в списке должны существовать в выбранном месяце.'}
-  const parsed = batch ? null : parseDate(normalized, base)
+  const singleTime = range || query ? null : parseSingleTime(timeText)
+  const dateText = singleTime ? normalized.slice(0,singleTime.match.index) + ' '.repeat(singleTime.match[0].length) + normalized.slice(singleTime.match.index+singleTime.match[0].length) : normalized
+  const parsed = batch ? null : parseDate(dateText, base,selectedDate)
   if (parsed && !parsed.date) return {reply:'Проверь дату. Например, можно написать «Съёмка 10 ноября» или «Репетиция 10.11.2026».'}
   const type = categoryOf(phrase)
 
@@ -222,7 +294,8 @@ export function interpret(text, events, base = today(), feed = {months:[]}, sele
     if (type === 'personal' && !/план|событи|расписани|дел|что у меня|что (?:сегодня|завтра|послезавтра|на выходных)|есть ли.*(?:сегодня|завтра)/u.test(phrase)) {
       return {reply:'Я могу подсказать даты съёмок, репетиций и спектаклей, показать планы на день или найти свободную дату.'}
     }
-    const found = matches.filter(event => type === 'personal' || event.type === type)
+    const mine = type === 'show' && /мо[ийею]|нестеров/u.test(phrase)
+    const found = matches.filter(event => (type === 'personal' || event.type === type) && (!mine || event.source !== 'theater' || event.myShow === true))
     if (!found.length) {
       const missing = ['show','teahouse','concert','personal'].includes(type) && (!feed.months.includes(from.slice(0, 7)) || feed.stale)
       return {reply:'В календаре за этот период таких событий нет.' + (missing ? '\nАфиша за этот период может быть неполной.' : '')}
@@ -232,13 +305,14 @@ export function interpret(text, events, base = today(), feed = {months:[]}, sele
     return {reply:'Вот что есть в календаре:\n' + items.join('\n'), date:found[0].date}
   }
 
-  if (!parsed && !range && !batch) return {reply:'Укажи дату, чтобы я добавил событие. Например, «Репетиция завтра с 10 до 18».'}
+  if (!parsed && !range && !batch && !singleTime) return {reply:'Укажи дату, чтобы я добавил событие. Например, «Репетиция завтра с 10 до 18».'}
   const dateIndex = batch?.index ?? parsed?.match.index
   const dateLength = batch?.length ?? parsed?.match[0].length
   const withoutDate = dateIndex !== undefined
     ? withoutRange.slice(0, dateIndex) + ' ' + withoutRange.slice(dateIndex + dateLength)
     : withoutRange
-  const timeMatch = range ? null : /(?<![а-я\d])(?:в\s+)?(\d{1,2})[:.](\d{2})(?!\d)|(?:^|\s)в\s+(\d{1,2})(?:\s+час(?:а|ов)?(?![а-я]))?(?=\s|[,.!]|$)/iu.exec(withoutDate)
+  const timeValue = range ? null : parseSingleTime(withoutDate)
+  const timeMatch = timeValue?.match
   let time = ''
   let endTime = ''
   if (range) {
@@ -247,22 +321,23 @@ export function interpret(text, events, base = today(), feed = {months:[]}, sele
     if (!clockPattern.test(time) || !clockPattern.test(endTime)) return {reply:'Проверь время. Например, «Репетиция завтра с 10:30 до 18:00».'}
     if (endTime <= time) return {reply:'Время окончания должно быть позже начала в пределах одного дня.'}
   } else if (timeMatch) {
-    const hour = +(timeMatch[1] || timeMatch[3])
-    const minute = +(timeMatch[2] || '0')
-    if (hour > 23 || minute > 59) return {reply:'Проверь время. Например, «Съёмка завтра в 18:30».'}
-    time = pad(hour) + ':' + pad(minute)
+    if (timeValue.error) return {reply:'Проверь время. Например, «Съёмка завтра в 18:30».'}
+    time = timeValue.time
   }
   let title = withoutDate
   if (timeMatch) title = title.slice(0,timeMatch.index) + ' ' + title.slice(timeMatch.index + timeMatch[0].length)
-  title = title.replace(/^\s*(?:добавь|запланируй|запиши|поставь)\s+/iu,'').replace(/[\s,.;:!?–—-]+$/u,'').replace(/(?:^|\s)(?:в|на)$/iu,'').replace(/^[\s,.;:–—-]+/u,'').replace(/\s+/gu,' ')
+  const important = /(?<![а-я])важн(?:о|ая|ый|ое|ую)(?![а-я])/iu.test(title)
+  title = title.replace(/^\s*(?:(?:пожалуйста|добавь|добавить|запланируй|запиши|поставь|мне|событие|события)\s*[,.:]?\s+)+/iu,'').replace(/(?<![а-я])(?:это\s+)?важн(?:о|ая|ый|ое|ую)(?![а-я])/giu,' ').replace(/[\s,.;:!?–—-]+$/u,'').replace(/(?:^|\s)(?:в|на)$/iu,'').replace(/^[\s,.;:–—-]+/u,'').replace(/\s+/gu,' ').trim()
+  title = title.replace(/^(?:на|в|во)\s+/iu,'')
   if (!title) return {reply:'Как назвать событие? Напиши название вместе с датой, например «Съёмка завтра».'}
   const date = parsed?.date ?? selectedDate
   const name = expandEventAliases(title).replace(/(?<![а-я])с[ъь][её]м/giu,'съём')
-  const event = {title:capitalize(name), date:stamp(date), time, type, ...(endTime ? {endTime} : {})}
+  if (name.length > 250) return {reply:'Сократи название события до 250 символов.'}
+  const event = {title:capitalize(name), date:stamp(date), time, type, ...(endTime ? {endTime} : {}), ...(important ? {important:true} : {})}
   if (batch) {
     const dates = batch.dates.sort((a,b) => a-b)
     return {events:dates.map(day => ({...event,date:stamp(day)})), date:stamp(dates[0]), reply:'«' + event.title + '» · ' + dates.map(dateLabel).join(', ') + (time ? ' · ' + eventTime(event) : '') + '.'}
   }
   const when = dateLabel(date) + (endTime ? ', ' + eventTime(event) : time ? ' в ' + time : '')
-  return {event, date:event.date, confirm:!parsed, reply:'Добавлено: «' + event.title + '» — ' + when + '.'}
+  return {event, date:event.date, confirm:!parsed || parsed.implicit === true, reply:'Добавлено: «' + event.title + '» — ' + when + (important ? ' · Важно' : '') + '.'}
 }
